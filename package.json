@@ -1,0 +1,33 @@
+{
+  "name": "caa-recruitment-backend",
+  "version": "1.0.0",
+  "description": "CAA Recruitment Portal - Node.js/Express backend with MySQL (mysql2)",
+  "main": "index.js",
+  "scripts": {
+    "dev": "nodemon index.js",
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "bcrypt": "^5.1.1",
+    "bcryptjs": "^3.0.3",
+    "cloudinary": "^2.10.0",
+    "compression": "^1.8.1",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.6",
+    "dotenv": "^16.6.1",
+    "express": "^4.19.2",
+    "express-rate-limit": "^8.5.2",
+    "express-validator": "^7.1.0",
+    "helmet": "^8.3.0",
+    "jsonwebtoken": "^9.0.2",
+    "morgan": "^1.11.0",
+    "multer": "^2.0.0",
+    "mysql2": "^3.22.6",
+    "node-cron": "^4.6.0",
+    "nodemailer": "^9.0.3",
+    "swagger-ui-express": "^5.0.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.4"
+  }
+}
