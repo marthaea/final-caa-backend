@@ -213,7 +213,7 @@ First, check your database for a user with `account_type = 'admin'` (seeded by `
 **Body (JSON):**
 ```json
 {
-  "email": "admin@caa.co.ug",
+  "email": "admin@caa.go.ug",
   "password": "Admin1234!"
 }
 ```

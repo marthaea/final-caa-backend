@@ -167,21 +167,21 @@ const JOBS = [
 // SECTION 2 — STAFF (exact copy of CAA_STAFF + STAFF_DATA in admin.tsx)
 // =====================================================================
 const STAFF = [
-  { employee_number:'CAA-1001', first_name:'Sarah',     last_name:'Namutebi',   dept:'Air Traffic Mgmt', position:'Director',       email:'sarah.namutebi@caa.co.ug',   joined_date:'2014-01-01', status:'Active' },
-  { employee_number:'CAA-1002', first_name:'James',     last_name:'Okello',     dept:'Aviation Safety',  position:'Manager',        email:'james.okello@caa.co.ug',     joined_date:'2015-02-01', status:'Active' },
-  { employee_number:'CAA-1003', first_name:'Patricia',  last_name:'Akello',     dept:'Finance & Admin',  position:'Senior Officer', email:'patricia.akello@caa.co.ug',  joined_date:'2016-03-01', status:'Active' },
-  { employee_number:'CAA-1004', first_name:'Robert',    last_name:'Ssebayiga',  dept:'ICT & Systems',    position:'Officer',        email:'robert.ssebayiga@caa.co.ug', joined_date:'2017-04-01', status:'Active' },
-  { employee_number:'CAA-1005', first_name:'Grace',     last_name:'Atim',       dept:'Legal',            position:'Analyst',        email:'grace.atim@caa.co.ug',       joined_date:'2018-05-01', status:'Active' },
-  { employee_number:'CAA-1006', first_name:'David',     last_name:'Mugisha',    dept:'Operations',       position:'Coordinator',    email:'david.mugisha@caa.co.ug',    joined_date:'2019-06-01', status:'Active' },
-  { employee_number:'CAA-1007', first_name:'Florence',  last_name:'Nansubuga',  dept:'Human Resources',  position:'Specialist',     email:'florence.nansubuga@caa.co.ug',joined_date:'2020-07-01', status:'Active' },
-  { employee_number:'CAA-1008', first_name:'Charles',   last_name:'Opio',       dept:'Procurement',      position:'Assistant',      email:'charles.opio@caa.co.ug',     joined_date:'2021-08-01', status:'Active' },
-  { employee_number:'CAA-1009', first_name:'Anita',     last_name:'Nakazibwe',  dept:'Engineering',      position:'Director',       email:'anita.nakazibwe@caa.co.ug',  joined_date:'2022-09-01', status:'Active' },
-  { employee_number:'CAA-1010', first_name:'Peter',     last_name:'Wanyama',    dept:'Communications',   position:'Manager',        email:'peter.wanyama@caa.co.ug',    joined_date:'2014-10-01', status:'Active' },
-  { employee_number:'CAA-1011', first_name:'Christine', last_name:'Nassali',    dept:'Air Traffic Mgmt', position:'Senior Officer', email:'christine.nassali@caa.co.ug', joined_date:'2015-11-01', status:'Active' },
-  { employee_number:'CAA-1012', first_name:'Joseph',    last_name:'Abalo',      dept:'Aviation Safety',  position:'Officer',        email:'joseph.abalo@caa.co.ug',     joined_date:'2016-12-01', status:'Active' },
-  { employee_number:'CAA-1013', first_name:'Esther',    last_name:'Nakiganda',  dept:'Finance & Admin',  position:'Analyst',        email:'esther.nakiganda@caa.co.ug', joined_date:'2017-01-01', status:'Active' },
-  { employee_number:'CAA-1014', first_name:'Moses',     last_name:'Kiggundu',   dept:'ICT & Systems',    position:'Coordinator',    email:'moses.kiggundu@caa.co.ug',   joined_date:'2018-02-01', status:'Active' },
-  { employee_number:'CAA-1015', first_name:'Agnes',     last_name:'Achola',     dept:'Legal',            position:'Specialist',     email:'agnes.achola@caa.co.ug',     joined_date:'2019-03-01', status:'Active' },
+  { employee_number:'CAA-1001', first_name:'Sarah',     last_name:'Namutebi',   dept:'Air Traffic Mgmt', position:'Director',       email:'sarahnamutebi@caa.go.ug',   joined_date:'2014-01-01', status:'Active' },
+  { employee_number:'CAA-1002', first_name:'James',     last_name:'Okello',     dept:'Aviation Safety',  position:'Manager',        email:'jamesokello@caa.go.ug',     joined_date:'2015-02-01', status:'Active' },
+  { employee_number:'CAA-1003', first_name:'Patricia',  last_name:'Akello',     dept:'Finance & Admin',  position:'Senior Officer', email:'patriciaakello@caa.go.ug',  joined_date:'2016-03-01', status:'Active' },
+  { employee_number:'CAA-1004', first_name:'Robert',    last_name:'Ssebayiga',  dept:'ICT & Systems',    position:'Officer',        email:'robertssebayiga@caa.go.ug', joined_date:'2017-04-01', status:'Active' },
+  { employee_number:'CAA-1005', first_name:'Grace',     last_name:'Atim',       dept:'Legal',            position:'Analyst',        email:'graceatim@caa.go.ug',       joined_date:'2018-05-01', status:'Active' },
+  { employee_number:'CAA-1006', first_name:'David',     last_name:'Mugisha',    dept:'Operations',       position:'Coordinator',    email:'davidmugisha@caa.go.ug',    joined_date:'2019-06-01', status:'Active' },
+  { employee_number:'CAA-1007', first_name:'Florence',  last_name:'Nansubuga',  dept:'Human Resources',  position:'Specialist',     email:'florencenansubuga@caa.go.ug',joined_date:'2020-07-01', status:'Active' },
+  { employee_number:'CAA-1008', first_name:'Charles',   last_name:'Opio',       dept:'Procurement',      position:'Assistant',      email:'charlesopio@caa.go.ug',     joined_date:'2021-08-01', status:'Active' },
+  { employee_number:'CAA-1009', first_name:'Anita',     last_name:'Nakazibwe',  dept:'Engineering',      position:'Director',       email:'anitanakazibwe@caa.go.ug',  joined_date:'2022-09-01', status:'Active' },
+  { employee_number:'CAA-1010', first_name:'Peter',     last_name:'Wanyama',    dept:'Communications',   position:'Manager',        email:'peterwanyama@caa.go.ug',    joined_date:'2014-10-01', status:'Active' },
+  { employee_number:'CAA-1011', first_name:'Christine', last_name:'Nassali',    dept:'Air Traffic Mgmt', position:'Senior Officer', email:'christinenassali@caa.go.ug', joined_date:'2015-11-01', status:'Active' },
+  { employee_number:'CAA-1012', first_name:'Joseph',    last_name:'Abalo',      dept:'Aviation Safety',  position:'Officer',        email:'josephabalo@caa.go.ug',     joined_date:'2016-12-01', status:'Active' },
+  { employee_number:'CAA-1013', first_name:'Esther',    last_name:'Nakiganda',  dept:'Finance & Admin',  position:'Analyst',        email:'esthernakiganda@caa.go.ug', joined_date:'2017-01-01', status:'Active' },
+  { employee_number:'CAA-1014', first_name:'Moses',     last_name:'Kiggundu',   dept:'ICT & Systems',    position:'Coordinator',    email:'moseskiggundu@caa.go.ug',   joined_date:'2018-02-01', status:'Active' },
+  { employee_number:'CAA-1015', first_name:'Agnes',     last_name:'Achola',     dept:'Legal',            position:'Specialist',     email:'agnesachola@caa.go.ug',     joined_date:'2019-03-01', status:'Active' },
 ];
 
 // =====================================================================
@@ -189,42 +189,42 @@ const STAFF = [
 //             + demo candidate accounts for pinned applications)
 // =====================================================================
 const ADMIN_USERS = [
-  { email:'admin@caa.co.ug',       plainPassword:'Admin@2026',   first_name:'Alex',  last_name:'Mukasa',   account_type:'admin', admin_role:'super',     effective_type:'admin' },
-  { email:'hr.director@caa.co.ug', plainPassword:'HrDir@2026',   first_name:'Jane',  last_name:'Mirembe',  account_type:'admin', admin_role:'hr',        effective_type:'admin' },
-  { email:'recruit@caa.co.ug',     plainPassword:'Recruit@2026', first_name:'David', last_name:'Ssempala', account_type:'admin', admin_role:'recruiter', effective_type:'admin' },
+  { email:'admin@caa.go.ug',      plainPassword:'Admin@2026',   first_name:'Alex',  last_name:'Mukasa',   account_type:'admin', admin_role:'super',     effective_type:'admin' },
+  { email:'hrdirector@caa.go.ug', plainPassword:'HrDir@2026',   first_name:'Jane',  last_name:'Mirembe',  account_type:'admin', admin_role:'hr',        effective_type:'admin' },
+  { email:'recruit@caa.go.ug',    plainPassword:'Recruit@2026', first_name:'David', last_name:'Ssempala', account_type:'admin', admin_role:'recruiter', effective_type:'admin' },
 ];
 
 // Demo candidate accounts (for the 8 pinned applications)
 // All given the password Demo@2026 for easy testing.
 const CANDIDATE_USERS = [
-  { email:'j.bukenya@gmail.com',             plainPassword:'Demo@2026', first_name:'John',     last_name:'Bukenya',     account_type:'external', effective_type:'external' },
-  { email:'m.auma@gmail.com',                plainPassword:'Demo@2026', first_name:'Mary',     last_name:'Auma',        account_type:'external', effective_type:'external' },
-  { email:'p.nkutu@gmail.com',               plainPassword:'Demo@2026', first_name:'Peter',    last_name:'Nkutu',       account_type:'external', effective_type:'external' },
-  { email:'k.ssali@student.mak.ac.ug',       plainPassword:'Demo@2026', first_name:'Kevin',    last_name:'Ssali',       account_type:'external', effective_type:'external' },
-  { email:'b.akello@student.mak.ac.ug',      plainPassword:'Demo@2026', first_name:'Brenda',   last_name:'Akello',      account_type:'external', effective_type:'external' },
-  { email:'i.mucunguzi@student.ucu.ac.ug',   plainPassword:'Demo@2026', first_name:'Ivan',     last_name:'Mucunguzi',   account_type:'external', effective_type:'external' },
-  { email:'s.nabirye@student.must.ac.ug',    plainPassword:'Demo@2026', first_name:'Stella',   last_name:'Nabirye',     account_type:'external', effective_type:'external' },
-  { email:'r.oulanyah@student.gulu.ac.ug',   plainPassword:'Demo@2026', first_name:'Ronald',   last_name:'Oulanyah',    account_type:'external', effective_type:'external' },
+  { email:'jbukenya@gmail.com',             plainPassword:'Demo@2026', first_name:'John',     last_name:'Bukenya',     account_type:'external', effective_type:'external' },
+  { email:'mauma@gmail.com',                plainPassword:'Demo@2026', first_name:'Mary',     last_name:'Auma',        account_type:'external', effective_type:'external' },
+  { email:'pnkutu@gmail.com',               plainPassword:'Demo@2026', first_name:'Peter',    last_name:'Nkutu',       account_type:'external', effective_type:'external' },
+  { email:'kssali@student.mak.ac.ug',       plainPassword:'Demo@2026', first_name:'Kevin',    last_name:'Ssali',       account_type:'external', effective_type:'external' },
+  { email:'bakello@student.mak.ac.ug',      plainPassword:'Demo@2026', first_name:'Brenda',   last_name:'Akello',      account_type:'external', effective_type:'external' },
+  { email:'imucunguzi@student.ucu.ac.ug',   plainPassword:'Demo@2026', first_name:'Ivan',     last_name:'Mucunguzi',   account_type:'external', effective_type:'external' },
+  { email:'snabirye@student.must.ac.ug',    plainPassword:'Demo@2026', first_name:'Stella',   last_name:'Nabirye',     account_type:'external', effective_type:'external' },
+  { email:'roulanyah@student.gulu.ac.ug',   plainPassword:'Demo@2026', first_name:'Ronald',   last_name:'Oulanyah',    account_type:'external', effective_type:'external' },
 ];
 
 // =====================================================================
 // SECTION 4 — PINNED APPLICATIONS (IDs 1–8, exact from AppContext.tsx)
 // =====================================================================
 const PINNED_APPS = [
-  { id:1,  job_id:1,  abbr:'ATC',  title:'Senior Air Traffic Controller',   dept:'Air Traffic Mgmt',  date:'Jun 3, 2026',  status:'Shortlisted',  completion:100, candidate_name:'John Bukenya',    candidate_email:'j.bukenya@gmail.com',           cgpa:null, university:null },
-  { id:2,  job_id:4,  abbr:'FIN',  title:'Finance Officer (Revenue Assurance)', dept:'Finance & Admin', date:'May 28, 2026', status:'Under Review', completion:85,  candidate_name:'Mary Auma',       candidate_email:'m.auma@gmail.com',              cgpa:null, university:null },
-  { id:3,  job_id:3,  abbr:'SYS',  title:'Systems Administrator',            dept:'ICT & Systems',     date:'May 15, 2026', status:'Pending',       completion:60,  candidate_name:'Peter Nkutu',     candidate_email:'p.nkutu@gmail.com',             cgpa:null, university:null },
-  { id:4,  job_id:6,  abbr:'ATT',  title:'ATC Trainee (Graduate Entry)',     dept:'Air Traffic Mgmt',  date:'Jun 1, 2026',  status:'Shortlisted',  completion:95,  candidate_name:'Kevin Ssali',     candidate_email:'k.ssali@student.mak.ac.ug',     cgpa:4.7,  university:'Makerere University' },
-  { id:5,  job_id:6,  abbr:'ATT',  title:'ATC Trainee (Graduate Entry)',     dept:'Air Traffic Mgmt',  date:'Jun 2, 2026',  status:'Under Review', completion:90,  candidate_name:'Brenda Akello',   candidate_email:'b.akello@student.mak.ac.ug',    cgpa:4.3,  university:'Makerere University' },
-  { id:6,  job_id:6,  abbr:'ATT',  title:'ATC Trainee (Graduate Entry)',     dept:'Air Traffic Mgmt',  date:'Jun 3, 2026',  status:'Pending',       completion:80,  candidate_name:'Ivan Mucunguzi',  candidate_email:'i.mucunguzi@student.ucu.ac.ug', cgpa:3.9,  university:'Uganda Christian University' },
-  { id:7,  job_id:6,  abbr:'ATT',  title:'ATC Trainee (Graduate Entry)',     dept:'Air Traffic Mgmt',  date:'Jun 5, 2026',  status:'Pending',       completion:70,  candidate_name:'Stella Nabirye',  candidate_email:'s.nabirye@student.must.ac.ug',  cgpa:3.6,  university:'Mbarara University' },
-  { id:8,  job_id:6,  abbr:'ATT',  title:'ATC Trainee (Graduate Entry)',     dept:'Air Traffic Mgmt',  date:'Jun 7, 2026',  status:'Declined',      completion:55,  candidate_name:'Ronald Oulanyah', candidate_email:'r.oulanyah@student.gulu.ac.ug', cgpa:2.8,  university:'Gulu University' },
+  { id:1,  job_id:1,  abbr:'ATC',  title:'Senior Air Traffic Controller',   dept:'Air Traffic Mgmt',  date:'Jun 3, 2026',  status:'Shortlisted',  completion:100, candidate_name:'John Bukenya',    candidate_email:'jbukenya@gmail.com',           cgpa:null, university:null },
+  { id:2,  job_id:4,  abbr:'FIN',  title:'Finance Officer (Revenue Assurance)', dept:'Finance & Admin', date:'May 28, 2026', status:'Under Review', completion:85,  candidate_name:'Mary Auma',       candidate_email:'mauma@gmail.com',              cgpa:null, university:null },
+  { id:3,  job_id:3,  abbr:'SYS',  title:'Systems Administrator',            dept:'ICT & Systems',     date:'May 15, 2026', status:'Pending',       completion:60,  candidate_name:'Peter Nkutu',     candidate_email:'pnkutu@gmail.com',             cgpa:null, university:null },
+  { id:4,  job_id:6,  abbr:'ATT',  title:'ATC Trainee (Graduate Entry)',     dept:'Air Traffic Mgmt',  date:'Jun 1, 2026',  status:'Shortlisted',  completion:95,  candidate_name:'Kevin Ssali',     candidate_email:'kssali@student.mak.ac.ug',     cgpa:4.7,  university:'Makerere University' },
+  { id:5,  job_id:6,  abbr:'ATT',  title:'ATC Trainee (Graduate Entry)',     dept:'Air Traffic Mgmt',  date:'Jun 2, 2026',  status:'Under Review', completion:90,  candidate_name:'Brenda Akello',   candidate_email:'bakello@student.mak.ac.ug',    cgpa:4.3,  university:'Makerere University' },
+  { id:6,  job_id:6,  abbr:'ATT',  title:'ATC Trainee (Graduate Entry)',     dept:'Air Traffic Mgmt',  date:'Jun 3, 2026',  status:'Pending',       completion:80,  candidate_name:'Ivan Mucunguzi',  candidate_email:'imucunguzi@student.ucu.ac.ug', cgpa:3.9,  university:'Uganda Christian University' },
+  { id:7,  job_id:6,  abbr:'ATT',  title:'ATC Trainee (Graduate Entry)',     dept:'Air Traffic Mgmt',  date:'Jun 5, 2026',  status:'Pending',       completion:70,  candidate_name:'Stella Nabirye',  candidate_email:'snabirye@student.must.ac.ug',  cgpa:3.6,  university:'Mbarara University' },
+  { id:8,  job_id:6,  abbr:'ATT',  title:'ATC Trainee (Graduate Entry)',     dept:'Air Traffic Mgmt',  date:'Jun 7, 2026',  status:'Declined',      completion:55,  candidate_name:'Ronald Oulanyah', candidate_email:'roulanyah@student.gulu.ac.ug', cgpa:2.8,  university:'Gulu University' },
 ];
 
 // Extra Bukenya applications spliced into the bulk (IDs 20, 21)
 const EXTRA_APPS = [
-  { id:20, job_id:3,  abbr:'SYS',  title:'Systems Administrator', dept:'ICT & Systems',     date:'May 20, 2026', status:'Under Review', completion:90, candidate_name:'John Bukenya', candidate_email:'j.bukenya@gmail.com', cgpa:null, university:null },
-  { id:21, job_id:13, abbr:'NET',  title:'Network Engineer',       dept:'ICT & Systems',     date:'Jun 10, 2026', status:'Pending',       completion:65, candidate_name:'John Bukenya', candidate_email:'j.bukenya@gmail.com', cgpa:null, university:null },
+  { id:20, job_id:3,  abbr:'SYS',  title:'Systems Administrator', dept:'ICT & Systems',     date:'May 20, 2026', status:'Under Review', completion:90, candidate_name:'John Bukenya', candidate_email:'jbukenya@gmail.com', cgpa:null, university:null },
+  { id:21, job_id:13, abbr:'NET',  title:'Network Engineer',       dept:'ICT & Systems',     date:'Jun 10, 2026', status:'Pending',       completion:65, candidate_name:'John Bukenya', candidate_email:'jbukenya@gmail.com', cgpa:null, university:null },
 ];
 
 // =====================================================================
@@ -232,12 +232,12 @@ const EXTRA_APPS = [
 // =====================================================================
 const CV_PROFILES = [
   {
-    user_email: 'j.bukenya@gmail.com',
+    user_email: 'jbukenya@gmail.com',
     personal_data: JSON.stringify({
       firstName:'John', lastName:'Bukenya', otherName:'',
       dob:'1990-03-15', gender:'Male', nationality:'Ugandan',
       nin:'CM79000315BUKJN', phone:'+256 701 234 567',
-      email:'j.bukenya@gmail.com', address:'Plot 45, Kisaasi, Kampala',
+      email:'jbukenya@gmail.com', address:'Plot 45, Kisaasi, Kampala',
     }),
     highest_level: 'Degree',
     qualifications: JSON.stringify([
@@ -257,19 +257,19 @@ const CV_PROFILES = [
       },
     ]),
     referees: JSON.stringify([
-      { name:'Col. Peter Wamala',  title:'Director, Air Traffic Management', organisation:'UCAA',               phone:'+256 414 352 000', email:'p.wamala@caa.co.ug'    },
+      { name:'Col. Peter Wamala',  title:'Director, Air Traffic Management', organisation:'UCAA',               phone:'+256 414 352 000', email:'pwamala@caa.go.ug'    },
       { name:'Dr. Rose Nalwoga',   title:'Head of Department',               organisation:'Makerere University', phone:'+256 772 900 100', email:'r.nalwoga@mak.ac.ug'   },
     ]),
     next_of_kin: JSON.stringify({ name:'Margaret Bukenya', relationship:'Spouse', phone:'+256 772 111 222' }),
     photo_url: null,
   },
   {
-    user_email: 'm.auma@gmail.com',
+    user_email: 'mauma@gmail.com',
     personal_data: JSON.stringify({
       firstName:'Mary', lastName:'Auma', otherName:'',
       dob:'1992-07-22', gender:'Female', nationality:'Ugandan',
       nin:'CF92000722AUMAM', phone:'+256 772 345 678',
-      email:'m.auma@gmail.com', address:'Plot 12B, Ntinda, Kampala',
+      email:'mauma@gmail.com', address:'Plot 12B, Ntinda, Kampala',
     }),
     highest_level: 'Degree',
     qualifications: JSON.stringify([
@@ -356,7 +356,7 @@ function generateSeedApplications() {
       s = lcg(s); const dt  = DATES[s % DATES.length];
       s = lcg(s); const dom = DOM[s % DOM.length];
 
-      const base = `${fn.toLowerCase().replace(/[^a-z]/g,'')}.${ln.toLowerCase().replace(/[^a-z]/g,'')}`;
+      const base = `${fn.toLowerCase().replace(/[^a-z]/g,'')}${ln.toLowerCase().replace(/[^a-z]/g,'')}`;
       let em = `${base}@${dom}`;
       if (usedEmails.has(em)) em = `${base}${k}@${dom}`;
       usedEmails.add(em);
@@ -646,11 +646,11 @@ async function seed() {
     console.log(`  Analytics Events:   ${aInserted}`);
     console.log(`  Settings:           1 row`);
     console.log('\nDemo login credentials:');
-    console.log('  Super Admin:   admin@caa.co.ug          / Admin@2026');
-    console.log('  HR Director:   hr.director@caa.co.ug    / HrDir@2026');
-    console.log('  Recruiter:     recruit@caa.co.ug         / Recruit@2026');
-    console.log('  Demo Candidate: j.bukenya@gmail.com      / Demo@2026');
-    console.log('  Demo Candidate: m.auma@gmail.com         / Demo@2026');
+    console.log('  Super Admin:   admin@caa.go.ug      / Admin@2026');
+    console.log('  HR Director:   hrdirector@caa.go.ug / HrDir@2026');
+    console.log('  Recruiter:     recruit@caa.go.ug    / Recruit@2026');
+    console.log('  Demo Candidate: jbukenya@gmail.com  / Demo@2026');
+    console.log('  Demo Candidate: mauma@gmail.com     / Demo@2026');
 
   } catch (err) {
     console.error('\nSeed FAILED:', err.message);

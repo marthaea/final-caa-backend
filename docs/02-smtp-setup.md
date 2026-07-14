@@ -35,7 +35,7 @@ SMTP_PORT=587
 SMTP_SECURE=false
 SMTP_USER=your_gmail_address@gmail.com
 SMTP_PASS=abcdefghijklmnop
-SMTP_FROM="CAA Recruitment" <noreply@caa.co.ug>
+SMTP_FROM="CAA Recruitment" <noreply@caa.go.ug>
 ```
 
 > **Note:** `SMTP_PASS` is the 16-character App Password (no spaces), NOT your regular Gmail password.
@@ -64,8 +64,8 @@ Brevo has a generous free tier (300 emails/day) and excellent deliverability. Th
 This step makes emails not go to spam:
 1. In Brevo, go to **Settings → Senders & IP → Domains**
 2. Click **Add a new domain**
-3. Enter `caa.co.ug` (or your actual domain)
-4. Brevo shows you DNS records to add — give these to whoever manages the `caa.co.ug` DNS (likely your IT team)
+3. Enter `caa.go.ug` (or your actual domain)
+4. Brevo shows you DNS records to add — give these to whoever manages the `caa.go.ug` DNS (likely your IT team)
 5. Once DNS propagates (up to 48h), the domain shows as verified
 
 ### Step 3 — Get SMTP credentials
@@ -85,7 +85,7 @@ SMTP_PORT=587
 SMTP_SECURE=false
 SMTP_USER=your_brevo_login@email.com
 SMTP_PASS=xkeysib-xxxxxxxxxxxxxxxxxxxx
-SMTP_FROM="CAA Uganda Recruitment" <recruitment@caa.co.ug>
+SMTP_FROM="CAA Uganda Recruitment" <recruitment@caa.go.ug>
 ```
 
 ---

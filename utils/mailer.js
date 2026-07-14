@@ -17,7 +17,7 @@ function getTransporter() {
   return _transporter;
 }
 
-const FROM = () => process.env.SMTP_FROM || '"CAA Recruitment" <noreply@caa.co.ug>';
+const FROM = () => process.env.SMTP_FROM || '"CAA Recruitment" <noreply@caa.go.ug>';
 
 async function sendMail({ to, subject, html, text }) {
   const transporter = getTransporter();
@@ -74,7 +74,7 @@ function applicationStatusEmail({ candidateName, jobTitle, status, message }) {
        <strong>${jobTitle}</strong> has been updated.</p>
     <p>Current status: <span class="badge" style="background:${color};color:#fff">${status}</span></p>
     ${message ? `<p>${message}</p>` : ''}
-    <p>You can log into the <a href="${process.env.FRONTEND_URL || 'https://recruitment.caa.co.ug'}">CAA Recruitment Portal</a> to view full details.</p>
+    <p>You can log into the <a href="${process.env.FRONTEND_URL || 'https://recruitment.caa.go.ug'}">CAA Recruitment Portal</a> to view full details.</p>
     <p>Thank you for your interest in joining Uganda Civil Aviation Authority.</p>
     <p>Regards,<br>CAA HR &amp; Recruitment Team</p>
   `);
@@ -91,7 +91,7 @@ function welcomeEmail({ firstName, lastName, email }) {
       <li>Upload your CV and supporting documents</li>
       <li>Track the status of your applications</li>
     </ul>
-    <p><a href="${process.env.FRONTEND_URL || 'https://recruitment.caa.co.ug'}">Visit the Portal</a></p>
+    <p><a href="${process.env.FRONTEND_URL || 'https://recruitment.caa.go.ug'}">Visit the Portal</a></p>
     <p>Regards,<br>CAA HR &amp; Recruitment Team</p>
   `);
   return { subject: 'Welcome to CAA Recruitment Portal', html };

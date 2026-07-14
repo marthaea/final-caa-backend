@@ -6,7 +6,7 @@ const spec = {
     title: 'CAA Recruitment API',
     version: '1.0.0',
     description: 'Uganda Civil Aviation Authority — Recruitment Portal REST API',
-    contact: { name: 'CAA HR & ICT', email: 'recruitment@caa.co.ug' }
+    contact: { name: 'CAA HR & ICT', email: 'recruitment@caa.go.ug' }
   },
   servers: [
     { url: '/api', description: 'Current server' }

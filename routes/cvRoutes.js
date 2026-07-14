@@ -95,6 +95,16 @@ router.post('/upload', verifyToken, upload.single('file'), async (req, res) => {
 
     await audit.fromReq(pool, req, audit.ACTIONS.FILE_UPLOADED, result.public_id);
 
+    // Persist photo URL directly into cv_profiles so it survives across logins
+    if (isPhoto) {
+      await pool.query(
+        `INSERT INTO cv_profiles (user_email, photo_url)
+         VALUES (?, ?)
+         ON DUPLICATE KEY UPDATE photo_url = VALUES(photo_url), updated_at = NOW()`,
+        [req.user.email, result.secure_url]
+      );
+    }
+
     return ok(res, {
       url:       result.secure_url,
       publicId:  result.public_id,

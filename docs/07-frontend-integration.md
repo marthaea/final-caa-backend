@@ -14,7 +14,7 @@ VITE_API_URL=http://localhost:5000/api
 
 For production deployment, change this to your deployed backend URL:
 ```env
-VITE_API_URL=https://api.recruitment.caa.co.ug/api
+VITE_API_URL=https://api.recruitment.caa.go.ug/api
 ```
 
 > The `VITE_` prefix makes this variable accessible in the browser. Do NOT put secrets (JWT_SECRET, DB_PASSWORD, etc.) with this prefix.
@@ -406,7 +406,7 @@ The `caa_refresh` cookie is `httpOnly` and `SameSite=Strict`. For it to be sent 
 3. Both must be on the same hostname (localhost) — ✅ in development
 
 In **production**, the frontend and backend must either:
-- Share the same domain (e.g., `caa.co.ug` and `api.caa.co.ug`)  
+- Share the same domain (e.g., `caa.go.ug` and `api.caa.go.ug`)  
 - Or use `SameSite=None; Secure` cookies (requires HTTPS on both)
 
 ---

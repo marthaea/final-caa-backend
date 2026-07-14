@@ -58,7 +58,7 @@ Leave `SMTP_HOST` blank to disable email sending entirely (safe for early develo
 | `SMTP_SECURE` | No | `false` | Set to `true` only if using port 465 (SSL) |
 | `SMTP_USER` | No | `you@gmail.com` | SMTP login username |
 | `SMTP_PASS` | No | `abcdefghijklmnop` | SMTP password / App Password |
-| `SMTP_FROM` | No | `"CAA Recruitment" <noreply@caa.co.ug>` | Display name and From address |
+| `SMTP_FROM` | No | `"CAA Recruitment" <noreply@caa.go.ug>` | Display name and From address |
 
 See `docs/02-smtp-setup.md` for provider-specific instructions.
 
@@ -101,7 +101,7 @@ SMTP_PORT=587
 SMTP_SECURE=false
 SMTP_USER=your_email@gmail.com
 SMTP_PASS=your_16char_app_password
-SMTP_FROM="CAA Recruitment" <noreply@caa.co.ug>
+SMTP_FROM="CAA Recruitment" <noreply@caa.go.ug>
 
 # ── Server ────────────────────────────────────────────────────────────────────
 PORT=5000

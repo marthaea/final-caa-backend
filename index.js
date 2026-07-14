@@ -1,11 +1,12 @@
 require('dotenv').config();
 
 // ── Required env variables — fail fast if any are missing ────────────────────
+// DB_PASSWORD is excluded — it may be empty on local MySQL with no root password
 const REQUIRED_ENV = [
-  'DB_HOST', 'DB_USER', 'DB_PASSWORD', 'DB_NAME',
+  'DB_HOST', 'DB_USER', 'DB_NAME',
   'JWT_SECRET', 'JWT_REFRESH_SECRET'
 ];
-const missing = REQUIRED_ENV.filter(k => !process.env[k]);
+const missing = REQUIRED_ENV.filter(k => process.env[k] === undefined || process.env[k] === '');
 if (missing.length) {
   console.error(`[startup] Missing required env variables: ${missing.join(', ')}`);
   process.exit(1);
@@ -30,8 +31,13 @@ app.use(requestId);
 
 // ── Security & logging ────────────────────────────────────────────────────────
 app.use(helmet());
+const allowedOrigins = (process.env.FRONTEND_URL || 'http://localhost:3000')
+  .split(',').map(o => o.trim());
 app.use(cors({
-  origin:         process.env.FRONTEND_URL || 'http://localhost:3000',
+  origin: (origin, cb) => {
+    if (!origin || allowedOrigins.some(o => origin.startsWith(o))) return cb(null, true);
+    cb(new Error(`CORS: origin ${origin} not allowed`));
+  },
   methods:        ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials:    true
