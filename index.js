@@ -59,6 +59,9 @@ if (process.env.NODE_ENV !== 'production') {
   console.log(`[startup] Swagger UI available at http://localhost:${process.env.PORT || 5000}/api-docs`);
 }
 
+// ── Keep-alive ping (used by UptimeRobot / cron-job.org to prevent Render sleep)
+app.get('/ping', (req, res) => res.json({ ok: true, ts: Date.now() }));
+
 // ── Routes ────────────────────────────────────────────────────────────────────
 app.use('/api', require('./routes'));
 
