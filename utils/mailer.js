@@ -2,9 +2,17 @@ const nodemailer = require('nodemailer');
 
 let _transporter = null;
 
+function isConfigured() {
+  const { SMTP_HOST, SMTP_USER, SMTP_PASS } = process.env;
+  if (!SMTP_HOST || !SMTP_USER || !SMTP_PASS) return false;
+  // Treat the .env template placeholders as "not configured"
+  if (/your_gmail|your_16_char|example\.com/i.test(SMTP_USER + SMTP_PASS)) return false;
+  return true;
+}
+
 function getTransporter() {
   if (_transporter) return _transporter;
-  if (!process.env.SMTP_HOST) return null;
+  if (!isConfigured()) return null;
   _transporter = nodemailer.createTransport({
     host:   process.env.SMTP_HOST,
     port:   parseInt(process.env.SMTP_PORT) || 587,
@@ -97,6 +105,22 @@ function welcomeEmail({ firstName, lastName, email }) {
   return { subject: 'Welcome to CAA Recruitment Portal', html };
 }
 
+function verificationEmail({ firstName, verifyUrl }) {
+  const html = wrap('Verify your email address', `
+    <p>Dear <strong>${firstName}</strong>,</p>
+    <p>Thank you for registering on the Uganda Civil Aviation Authority Recruitment Portal.</p>
+    <p>Please confirm your email address so we can reach you about your applications:</p>
+    <p style="text-align:center;margin:24px 0">
+      <a href="${verifyUrl}" style="background:#1a3a6e;color:#fff;padding:12px 28px;border-radius:6px;text-decoration:none;font-weight:700">Verify my email</a>
+    </p>
+    <p>If the button does not work, copy this link into your browser:<br>
+       <a href="${verifyUrl}">${verifyUrl}</a></p>
+    <p>If you did not create this account, you can safely ignore this email.</p>
+    <p>Regards,<br>CAA HR &amp; Recruitment Team</p>
+  `);
+  return { subject: 'Verify your email — CAA Recruitment Portal', html };
+}
+
 function bulkEmail({ candidateName, subject, body }) {
   const html = wrap(subject, `
     <p>Dear <strong>${candidateName}</strong>,</p>
@@ -106,4 +130,4 @@ function bulkEmail({ candidateName, subject, body }) {
   return { subject, html };
 }
 
-module.exports = { sendMail, applicationStatusEmail, welcomeEmail, bulkEmail };
+module.exports = { sendMail, applicationStatusEmail, welcomeEmail, bulkEmail, verificationEmail, isConfigured };

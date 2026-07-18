@@ -21,6 +21,8 @@ CREATE TABLE IF NOT EXISTS users (
   admin_role       ENUM('super','hr','recruiter') NULL,
   employee_number  VARCHAR(50)  NULL,
   effective_type   ENUM('external','internal','admin') NOT NULL DEFAULT 'external',
+  email_verified   TINYINT(1)   NOT NULL DEFAULT 1,
+  verify_token     VARCHAR(64)  NULL,
   created_at       DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at       DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -30,6 +32,8 @@ CREATE TABLE IF NOT EXISTS users (
 |--------|---------|
 | `account_type` | The real type of the account |
 | `effective_type` | What the user "acts as" — can differ from account_type for special cases |
+| `email_verified` | 0 until the user clicks the verification link. Default 1 so accounts created before this feature are not nagged; registration explicitly inserts 0 |
+| `verify_token` | Single-use 64-char hex token for the verification link; cleared on verification |
 | `admin_role` | Only set when account_type = admin |
 | `employee_number` | Only set when account_type = internal |
 
@@ -296,3 +300,30 @@ ALTER TABLE audit_log    ADD INDEX idx_audit_at             (at);
 ALTER TABLE analytics_events ADD INDEX idx_analytics_type   (event_type);
 ALTER TABLE analytics_events ADD INDEX idx_analytics_at     (created_at);
 ```
+
+---
+
+## Table — chatbot_queries
+
+Questions typed to Martha (the frontend chatbot). Used by the "Martha" panel in
+the HR Console's Site Analytics tab to surface questions she could not answer —
+frequent entries are candidates for new FAQ content. Chip clicks and small talk
+are not logged.
+
+```sql
+CREATE TABLE IF NOT EXISTS chatbot_queries (
+  id               INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  query            VARCHAR(500) NOT NULL,
+  matched_question VARCHAR(255) NULL,
+  outcome          ENUM('answered','suggested','fallback') NOT NULL,
+  persona          VARCHAR(20)  NOT NULL DEFAULT 'guest',
+  asked_at         TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_outcome_date (outcome, asked_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+```
+
+| Column | Purpose |
+|--------|---------|
+| `matched_question` | The FAQ question Martha matched (or her best "did you mean?" candidate) |
+| `outcome` | `answered` = confident answer; `suggested` = weak match, offered candidates; `fallback` = no answer |
+| `persona` | Who was chatting: guest, external, internal, recruiter, hr, or super |

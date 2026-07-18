@@ -1,5 +1,6 @@
 const router  = require('express').Router();
 const bcrypt  = require('bcrypt');
+const crypto  = require('crypto');
 const pool    = require('../config/db');
 const { verifyToken }                          = require('../middleware/auth');
 const { authLimiter }                          = require('../middleware/rateLimiter');
@@ -51,12 +52,14 @@ router.post('/register', authLimiter, registerRules, validate, async (req, res) 
     }
 
     const passwordHash = await bcrypt.hash(password, 12);
+    const verifyTokenValue = crypto.randomBytes(32).toString('hex');
     const [result] = await pool.query(
       `INSERT INTO users
-         (email, password_hash, first_name, last_name, account_type, employee_number, effective_type)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+         (email, password_hash, first_name, last_name, account_type, employee_number, effective_type,
+          email_verified, verify_token)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?)`,
       [email.toLowerCase(), passwordHash, firstName, lastName, accountType,
-       accountType === 'internal' ? employeeNumber : null, accountType]
+       accountType === 'internal' ? employeeNumber : null, accountType, verifyTokenValue]
     );
 
     const [users] = await pool.query('SELECT * FROM users WHERE id = ?', [result.insertId]);
@@ -68,16 +71,29 @@ router.post('/register', authLimiter, registerRules, validate, async (req, res) 
 
     res.cookie(REFRESH_COOKIE, refreshToken, COOKIE_OPTIONS);
 
-    // Fire welcome email — non-blocking
-    const { subject, html } = mailer.welcomeEmail({ firstName, lastName, email: user.email });
-    mailer.sendMail({ to: user.email, subject, html }).catch(err =>
-      console.error('[mailer] welcome email failed:', err.message)
-    );
+    // Fire welcome + verification emails — non-blocking.
+    // FRONTEND_URL may be a comma-separated allowlist; links use the first entry.
+    const frontendBase = (process.env.FRONTEND_URL || 'http://localhost:3000').split(',')[0].trim();
+    const verifyUrl = `${frontendBase}/verify-email?token=${verifyTokenValue}`;
+    if (mailer.isConfigured()) {
+      const welcome = mailer.welcomeEmail({ firstName, lastName, email: user.email });
+      mailer.sendMail({ to: user.email, subject: welcome.subject, html: welcome.html }).catch(err =>
+        console.error('[mailer] welcome email failed:', err.message)
+      );
+      const verification = mailer.verificationEmail({ firstName, verifyUrl });
+      mailer.sendMail({ to: user.email, subject: verification.subject, html: verification.html }).catch(err =>
+        console.error('[mailer] verification email failed:', err.message)
+      );
+    } else {
+      // Dev fallback: no SMTP configured — print the link so it can be used manually
+      console.log(`[mailer] SMTP not configured. Verification link for ${user.email}:\n  ${verifyUrl}`);
+    }
 
     return ok(res, {
       id: user.id, email: user.email,
       firstName: user.first_name, lastName: user.last_name,
       accountType: user.account_type, effectiveType: user.effective_type,
+      emailVerified: false,
       token
     }, 201);
   } catch (e) {
@@ -120,6 +136,7 @@ router.post('/login', authLimiter, loginRules, validate, async (req, res) => {
       effectiveType: user.effective_type || user.account_type,
       adminRole: user.admin_role || null,
       employeeNumber: user.employee_number || null,
+      emailVerified: user.email_verified !== 0,
       token
     });
   } catch (e) {
@@ -200,6 +217,52 @@ router.put('/profile', verifyToken, profileUpdateRules, validate, async (req, re
     });
   } catch (e) {
     console.error('profile:', e);
+    return res.status(500).json({ success: false, error: 'Internal server error' });
+  }
+});
+
+// ── GET /api/auth/verify-email?token=... ─────────────────────────────────────
+// Public: called from the link in the verification email.
+router.get('/verify-email', async (req, res) => {
+  try {
+    const { token } = req.query;
+    if (!token || typeof token !== 'string' || token.length !== 64) {
+      return fail(res, 'Invalid verification link');
+    }
+    const [rows] = await pool.query('SELECT id, email FROM users WHERE verify_token = ?', [token]);
+    if (rows.length === 0) return fail(res, 'This verification link is invalid or has already been used', 404);
+    await pool.query('UPDATE users SET email_verified = 1, verify_token = NULL WHERE id = ?', [rows[0].id]);
+    return ok(res, { message: 'Email verified', email: rows[0].email });
+  } catch (e) {
+    console.error('verify-email:', e);
+    return res.status(500).json({ success: false, error: 'Internal server error' });
+  }
+});
+
+// ── POST /api/auth/resend-verification ───────────────────────────────────────
+router.post('/resend-verification', verifyToken, authLimiter, async (req, res) => {
+  try {
+    const [rows] = await pool.query('SELECT * FROM users WHERE id = ?', [req.user.id]);
+    if (rows.length === 0) return fail(res, 'User not found', 404);
+    const user = rows[0];
+    if (user.email_verified) return ok(res, { message: 'Email already verified' });
+
+    let tokenValue = user.verify_token;
+    if (!tokenValue) {
+      tokenValue = crypto.randomBytes(32).toString('hex');
+      await pool.query('UPDATE users SET verify_token = ? WHERE id = ?', [tokenValue, user.id]);
+    }
+    const frontendBase = (process.env.FRONTEND_URL || 'http://localhost:3000').split(',')[0].trim();
+    const verifyUrl = `${frontendBase}/verify-email?token=${tokenValue}`;
+    if (mailer.isConfigured()) {
+      const { subject, html } = mailer.verificationEmail({ firstName: user.first_name, verifyUrl });
+      await mailer.sendMail({ to: user.email, subject, html });
+      return ok(res, { message: 'Verification email sent' });
+    }
+    console.log(`[mailer] SMTP not configured. Verification link for ${user.email}:\n  ${verifyUrl}`);
+    return ok(res, { message: 'Email service is not configured yet — the verification link was logged on the server. Contact support if you need help verifying.' });
+  } catch (e) {
+    console.error('resend-verification:', e);
     return res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });

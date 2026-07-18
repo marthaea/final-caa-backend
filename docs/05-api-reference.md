@@ -14,9 +14,11 @@ Legend: 🔓 Public | 🔑 Any logged-in user | 👑 Admin only (with permission
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| POST | `/auth/register` | 🔓 | Register new account. Rate limited: 10/15min |
+| POST | `/auth/register` | 🔓 | Register new account. Rate limited: 10/15min. Sends a verification email (or logs the link when SMTP is unconfigured) |
 | POST | `/auth/login` | 🔓 | Login. Rate limited: 10/15min |
 | POST | `/auth/refresh-token` | 🔓 | Rotate refresh token, get new access token |
+| GET | `/auth/verify-email?token=...` | 🔓 | Verify an email address (single-use 64-char token from the verification email) |
+| POST | `/auth/resend-verification` | 🔑 | Re-send the verification email for the logged-in user |
 | GET | `/auth/me` | 🔑 | Get current user profile |
 | PUT | `/auth/profile` | 🔑 | Update own name/email |
 | POST | `/auth/logout` | 🔑 | Clear refresh token cookie |
@@ -39,10 +41,14 @@ Legend: 🔓 Public | 🔑 Any logged-in user | 👑 Admin only (with permission
   "data": {
     "id": 5, "email": "amara@example.com",
     "firstName": "Amara", "lastName": "Nakato",
-    "accountType": "external", "effectiveType": "external", "token": "eyJ..."
+    "accountType": "external", "effectiveType": "external",
+    "emailVerified": false, "token": "eyJ..."
   }
 }
 ```
+
+Login responses also include `emailVerified` (boolean). Accounts created before the
+verification feature are treated as verified.
 
 ### POST /auth/login
 ```json
@@ -336,6 +342,38 @@ Query params: `?actor=John&action=login&from=2026-01-01&to=2026-12-31&limit=100`
 | POST | `/staff` | 👑 super | Add staff record |
 | PUT | `/staff/:id` | 👑 super | Update staff record |
 | DELETE | `/staff/:id` | 👑 super | Delete staff record |
+
+---
+
+## Chatbot (Martha) — `/api/chatbot`
+
+The frontend chatbot ("Martha") logs typed questions so HR can see which topics
+need new FAQ content. Chip clicks and small talk are not logged.
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| POST | `/chatbot/queries` | 🔓 | Log a chatbot question (public — guests use Martha too) |
+| GET | `/chatbot/queries` | 👑 canViewAudit | List logged questions (powers the Martha panel in Site Analytics) |
+
+### POST /chatbot/queries
+```json
+{
+  "query": "can i bring my drone to the airport",   // required, truncated to 500 chars
+  "matchedQuestion": "What are the drone regulations in Uganda?",  // optional
+  "outcome": "suggested",   // one of: answered | suggested | fallback
+  "persona": "guest"        // guest | external | internal | recruiter | hr | super
+}
+```
+
+`outcome` meanings: `answered` — Martha gave a confident answer; `suggested` —
+weak match, she offered "did you mean?" candidates; `fallback` — she had nothing.
+
+### GET /chatbot/queries
+```
+?outcome=fallback   (optional filter: answered | suggested | fallback)
+&days=30            (default 30, max 365)
+&limit=200          (default 200, max 1000)
+```
 
 ---
 
