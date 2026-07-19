@@ -36,4 +36,20 @@ const profileUpdateRules = [
     .trim().isLength({ min: 1, max: 100 }).withMessage('Last name must be 1–100 characters')
 ];
 
-module.exports = { registerRules, loginRules, profileUpdateRules };
+const forgotPasswordRules = [
+  body('email').isEmail().withMessage('Valid email required').normalizeEmail()
+];
+
+const resetPasswordRules = [
+  body('token')
+    .isHexadecimal().withMessage('Invalid reset token')
+    .isLength({ min: 64, max: 64 }).withMessage('Invalid reset token'),
+  body('password')
+    .isLength({ min: 8 }).withMessage('Password must be at least 8 characters')
+    .matches(/\d/).withMessage('Password must contain at least one number')
+];
+
+module.exports = {
+  registerRules, loginRules, profileUpdateRules,
+  forgotPasswordRules, resetPasswordRules
+};

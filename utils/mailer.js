@@ -121,6 +121,21 @@ function verificationEmail({ firstName, verifyUrl }) {
   return { subject: 'Verify your email — CAA Recruitment Portal', html };
 }
 
+function passwordResetEmail({ firstName, resetUrl }) {
+  const html = wrap('Reset your password', `
+    <p>Dear <strong>${firstName}</strong>,</p>
+    <p>We received a request to reset the password for your CAA Recruitment Portal account.</p>
+    <p style="text-align:center;margin:24px 0">
+      <a href="${resetUrl}" style="background:#1a3a6e;color:#fff;padding:12px 28px;border-radius:6px;text-decoration:none;font-weight:700">Reset my password</a>
+    </p>
+    <p>If the button does not work, copy this link into your browser:<br>
+       <a href="${resetUrl}">${resetUrl}</a></p>
+    <p>This link expires in 1 hour. If you did not request a password reset, you can safely ignore this email — your password will not change.</p>
+    <p>Regards,<br>CAA HR &amp; Recruitment Team</p>
+  `);
+  return { subject: 'Reset your password — CAA Recruitment Portal', html };
+}
+
 function bulkEmail({ candidateName, subject, body }) {
   const html = wrap(subject, `
     <p>Dear <strong>${candidateName}</strong>,</p>
@@ -130,4 +145,4 @@ function bulkEmail({ candidateName, subject, body }) {
   return { subject, html };
 }
 
-module.exports = { sendMail, applicationStatusEmail, welcomeEmail, bulkEmail, verificationEmail, isConfigured };
+module.exports = { sendMail, applicationStatusEmail, welcomeEmail, bulkEmail, verificationEmail, passwordResetEmail, isConfigured };

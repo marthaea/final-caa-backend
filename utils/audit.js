@@ -4,6 +4,7 @@
 const ACTIONS = {
   USER_REGISTERED:    'User registered',
   USER_LOGGED_IN:     'User logged in',
+  PASSWORD_RESET:     'Password reset',
   JOB_CREATED:        'Created job listing',
   JOB_UPDATED:        'Updated job listing',
   JOB_DELETED:        'Deleted job listing',

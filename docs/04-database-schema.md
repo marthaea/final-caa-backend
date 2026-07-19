@@ -23,6 +23,10 @@ CREATE TABLE IF NOT EXISTS users (
   effective_type   ENUM('external','internal','admin') NOT NULL DEFAULT 'external',
   email_verified   TINYINT(1)   NOT NULL DEFAULT 1,
   verify_token     VARCHAR(64)  NULL,
+  is_active        TINYINT(1)   NOT NULL DEFAULT 1,
+  token_version    INT UNSIGNED NOT NULL DEFAULT 0,
+  reset_token_hash VARCHAR(64)  NULL,
+  reset_token_expires DATETIME  NULL,
   created_at       DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at       DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -36,6 +40,10 @@ CREATE TABLE IF NOT EXISTS users (
 | `verify_token` | Single-use 64-char hex token for the verification link; cleared on verification |
 | `admin_role` | Only set when account_type = admin |
 | `employee_number` | Only set when account_type = internal |
+| `is_active` | 0 blocks login and token refresh (admin deactivation) |
+| `token_version` | Embedded in refresh JWTs; bumping it invalidates all outstanding refresh tokens (logout, password reset) |
+| `reset_token_hash` | SHA-256 of the single-use password reset token — only the hash is stored |
+| `reset_token_expires` | Reset link validity cutoff (1 hour from request) |
 
 ---
 
