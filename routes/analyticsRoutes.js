@@ -1,5 +1,6 @@
 const router = require('express').Router();
 const pool = require('../config/db');
+const asyncHandler = require('../utils/asyncHandler');
 const { verifyToken } = require('../middleware/auth');
 const { requirePerm } = require('../middleware/rbac');
 const { ok, fail } = require('../utils/format');
@@ -33,108 +34,98 @@ function getCookie(req, name) {
 }
 
 // POST /api/analytics/event  (public)
-router.post('/event', rateLimit, async (req, res) => {
-  try {
-    const { type, jobId, jobTitle, query } = req.body;
-    if (!VALID_TYPES.includes(type)) {
-      return fail(res, `type must be one of: ${VALID_TYPES.join(', ')}`);
-    }
-    const sessionId = getCookie(req, 'caa_sid') || null;
-    await pool.query(
-      `INSERT INTO analytics_events (event_type, job_id, job_title, query, session_id)
-       VALUES (?, ?, ?, ?, ?)`,
-      [type, jobId || null, jobTitle || null, query || null, sessionId]
-    );
-    return res.status(201).json({ success: true });
-  } catch (e) {
-    console.error('POST /analytics/event:', e);
-    return res.status(500).json({ success: false, error: 'Internal server error' });
+router.post('/event', rateLimit, asyncHandler(async (req, res) => {
+  const { type, jobId, jobTitle, query } = req.body;
+  if (!VALID_TYPES.includes(type)) {
+    return fail(res, `type must be one of: ${VALID_TYPES.join(', ')}`);
   }
-});
+  const sessionId = getCookie(req, 'caa_sid') || null;
+  await pool.query(
+    `INSERT INTO analytics_events (event_type, job_id, job_title, query, session_id)
+     VALUES (?, ?, ?, ?, ?)`,
+    [type, jobId || null, jobTitle || null, query || null, sessionId]
+  );
+  return res.status(201).json({ success: true });
+}));
 
 // GET /api/analytics
-router.get('/', verifyToken, requirePerm('canViewAudit'), async (req, res) => {
-  try {
-    const days = Math.min(parseInt(req.query.days) || 30, 365);
+router.get('/', verifyToken, requirePerm('canViewAudit'), asyncHandler(async (req, res) => {
+  const days = Math.min(parseInt(req.query.days) || 30, 365);
 
-    // Raw events (last N days, newest first, limit 500)
-    const [events] = await pool.query(
-      `SELECT * FROM analytics_events
-       WHERE created_at >= DATE_SUB(NOW(), INTERVAL ? DAY)
-       ORDER BY created_at DESC LIMIT 500`,
-      [days]
-    );
+  // Raw events (last N days, newest first, limit 500)
+  const [events] = await pool.query(
+    `SELECT * FROM analytics_events
+     WHERE created_at >= DATE_SUB(NOW(), INTERVAL ? DAY)
+     ORDER BY created_at DESC LIMIT 500`,
+    [days]
+  );
 
-    const mappedEvents = events.map(r => ({
-      id: r.id,
-      type: r.event_type,
-      jobId: r.job_id,
-      jobTitle: r.job_title,
-      query: r.query,
-      ts: new Date(r.created_at).getTime(),
-      sessionId: r.session_id
-    }));
+  const mappedEvents = events.map(r => ({
+    id: r.id,
+    type: r.event_type,
+    jobId: r.job_id,
+    jobTitle: r.job_title,
+    query: r.query,
+    ts: new Date(r.created_at).getTime(),
+    sessionId: r.session_id
+  }));
 
-    // Summary: counts per event_type for last 7 days
-    const [summaryRows] = await pool.query(
-      `SELECT event_type, COUNT(*) AS cnt FROM analytics_events
-       WHERE created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
-       GROUP BY event_type`
-    );
-    const summaryMap = {};
-    for (const r of summaryRows) summaryMap[r.event_type] = r.cnt;
+  // Summary: counts per event_type for last 7 days
+  const [summaryRows] = await pool.query(
+    `SELECT event_type, COUNT(*) AS cnt FROM analytics_events
+     WHERE created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+     GROUP BY event_type`
+  );
+  const summaryMap = {};
+  for (const r of summaryRows) summaryMap[r.event_type] = r.cnt;
 
-    const summary = {
-      pageViews7:   summaryMap['page_view']   || 0,
-      jobViews7:    summaryMap['job_view']     || 0,
-      applyClicks7: summaryMap['apply_click']  || 0,
-      searches7:    summaryMap['search']        || 0,
-      saveJobs7:    summaryMap['save_job']      || 0
-    };
+  const summary = {
+    pageViews7:   summaryMap['page_view']   || 0,
+    jobViews7:    summaryMap['job_view']     || 0,
+    applyClicks7: summaryMap['apply_click']  || 0,
+    searches7:    summaryMap['search']        || 0,
+    saveJobs7:    summaryMap['save_job']      || 0
+  };
 
-    // Top 5 jobs by job_view (last 7 days)
-    const [topJobs] = await pool.query(
-      `SELECT job_id AS jobId, job_title AS jobTitle, COUNT(*) AS count
-       FROM analytics_events
-       WHERE event_type = 'job_view'
-         AND created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
-         AND job_id IS NOT NULL
-       GROUP BY job_id, job_title
-       ORDER BY count DESC
-       LIMIT 5`
-    );
+  // Top 5 jobs by job_view (last 7 days)
+  const [topJobs] = await pool.query(
+    `SELECT job_id AS jobId, job_title AS jobTitle, COUNT(*) AS count
+     FROM analytics_events
+     WHERE event_type = 'job_view'
+       AND created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+       AND job_id IS NOT NULL
+     GROUP BY job_id, job_title
+     ORDER BY count DESC
+     LIMIT 5`
+  );
 
-    // Top 10 search queries (last 7 days)
-    const [topSearches] = await pool.query(
-      `SELECT query, COUNT(*) AS count
-       FROM analytics_events
-       WHERE event_type = 'search'
-         AND query IS NOT NULL
-         AND created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
-       GROUP BY query
-       ORDER BY count DESC
-       LIMIT 10`
-    );
+  // Top 10 search queries (last 7 days)
+  const [topSearches] = await pool.query(
+    `SELECT query, COUNT(*) AS count
+     FROM analytics_events
+     WHERE event_type = 'search'
+       AND query IS NOT NULL
+       AND created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+     GROUP BY query
+     ORDER BY count DESC
+     LIMIT 10`
+  );
 
-    // Daily counts for last 7 days
-    const [dailyCounts] = await pool.query(
-      `SELECT DATE(created_at) AS date, COUNT(*) AS count
-       FROM analytics_events
-       WHERE created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
-       GROUP BY DATE(created_at)
-       ORDER BY date ASC`
-    );
+  // Daily counts for last 7 days
+  const [dailyCounts] = await pool.query(
+    `SELECT DATE(created_at) AS date, COUNT(*) AS count
+     FROM analytics_events
+     WHERE created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+     GROUP BY DATE(created_at)
+     ORDER BY date ASC`
+  );
 
-    const mappedDaily = dailyCounts.map(r => ({
-      date: r.date instanceof Date ? r.date.toISOString().slice(0, 10) : String(r.date),
-      count: r.count
-    }));
+  const mappedDaily = dailyCounts.map(r => ({
+    date: r.date instanceof Date ? r.date.toISOString().slice(0, 10) : String(r.date),
+    count: r.count
+  }));
 
-    return ok(res, { events: mappedEvents, summary, topJobs, topSearches, dailyCounts: mappedDaily });
-  } catch (e) {
-    console.error('GET /analytics:', e);
-    return res.status(500).json({ success: false, error: 'Internal server error' });
-  }
-});
+  return ok(res, { events: mappedEvents, summary, topJobs, topSearches, dailyCounts: mappedDaily });
+}));
 
 module.exports = router;

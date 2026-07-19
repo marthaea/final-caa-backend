@@ -1,5 +1,6 @@
 const router = require('express').Router();
 const pool = require('../config/db');
+const asyncHandler = require('../utils/asyncHandler');
 const { verifyToken } = require('../middleware/auth');
 const { requirePerm } = require('../middleware/rbac');
 const { ok, okList, fail } = require('../utils/format');
@@ -20,37 +21,27 @@ function mapStaff(row) {
 }
 
 // GET /api/staff
-router.get('/', verifyToken, requirePerm('canViewStaff'), async (req, res) => {
-  try {
-    const { search } = req.query;
-    let sql = `SELECT * FROM staff`;
-    const params = [];
-    if (search) {
-      sql += ` WHERE first_name LIKE ? OR last_name LIKE ? OR email LIKE ? OR dept LIKE ?`;
-      const like = `%${search}%`;
-      params.push(like, like, like, like);
-    }
-    sql += ' ORDER BY last_name ASC';
-    const [rows] = await pool.query(sql, params);
-    return okList(res, rows.map(mapStaff));
-  } catch (e) {
-    console.error('GET /staff:', e);
-    return res.status(500).json({ success: false, error: 'Internal server error' });
+router.get('/', verifyToken, requirePerm('canViewStaff'), asyncHandler(async (req, res) => {
+  const { search } = req.query;
+  let sql = `SELECT * FROM staff`;
+  const params = [];
+  if (search) {
+    sql += ` WHERE first_name LIKE ? OR last_name LIKE ? OR email LIKE ? OR dept LIKE ?`;
+    const like = `%${search}%`;
+    params.push(like, like, like, like);
   }
-});
+  sql += ' ORDER BY last_name ASC';
+  const [rows] = await pool.query(sql, params);
+  return okList(res, rows.map(mapStaff));
+}));
 
 // GET /api/staff/verify/:employeeNumber  (public — needed before account exists)
-router.get('/verify/:employeeNumber', async (req, res) => {
-  try {
-    const [rows] = await pool.query(
-      'SELECT id FROM staff WHERE employee_number = ? LIMIT 1',
-      [req.params.employeeNumber]
-    );
-    return res.json({ exists: rows.length > 0 });
-  } catch (e) {
-    console.error('GET /staff/verify:', e);
-    return res.status(500).json({ success: false, error: 'Internal server error' });
-  }
-});
+router.get('/verify/:employeeNumber', asyncHandler(async (req, res) => {
+  const [rows] = await pool.query(
+    'SELECT id FROM staff WHERE employee_number = ? LIMIT 1',
+    [req.params.employeeNumber]
+  );
+  return res.json({ exists: rows.length > 0 });
+}));
 
 module.exports = router;
