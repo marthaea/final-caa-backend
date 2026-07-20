@@ -286,6 +286,21 @@ router.put('/:id/status', verifyToken, requirePerm('canShortlist'), statusUpdate
     );
   }
 
+  // Automatic intern-acceptance email — always fires when an intern (identified by
+  // having a CGPA on file) is offered a position, regardless of whether the admin
+  // above wrote a custom notify message. Interns need this to get an airport pass.
+  if (status === 'Offered' && app.cgpa != null) {
+    const [jobRows] = await pool.query('SELECT location FROM jobs WHERE id = ?', [app.job_id]);
+    const { subject: internSubject, html: internHtml } = mailer.internAcceptanceEmail({
+      candidateName: app.candidate_name,
+      jobTitle:      app.title,
+      location:      jobRows[0]?.location || null
+    });
+    mailer.sendMail({ to: app.candidate_email, subject: internSubject, html: internHtml }).catch(err =>
+      console.error('[mailer] intern acceptance email failed:', err.message)
+    );
+  }
+
   await logAudit(pool, req,
     `Updated application status to ${status}`,
     `${app.candidate_name} (${app.abbr})`

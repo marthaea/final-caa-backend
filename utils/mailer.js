@@ -136,6 +136,28 @@ function passwordResetEmail({ firstName, resetUrl }) {
   return { subject: 'Reset your password — CAA Recruitment Portal', html };
 }
 
+// Interns report to a restricted site (e.g. Entebbe Airport) and need an Airport
+// Pass to get in. That pass can only be applied for once HR issues a physical
+// Acceptance Letter in person — so this always fires on intern acceptance,
+// independent of whatever custom message an admin may also send.
+function internAcceptanceEmail({ candidateName, jobTitle, location }) {
+  const html = wrap('Internship Accepted — Next Steps', `
+    <p>Dear <strong>${candidateName}</strong>,</p>
+    <p>Congratulations! You have been accepted into the Uganda Civil Aviation Authority
+       internship programme for the position of <strong>${jobTitle}</strong>.</p>
+    <p>Before you can report for duty, please complete the following:</p>
+    <ol>
+      <li>Visit the Human Resource office at <strong>CAA Head Office</strong> in person to collect your official <strong>Acceptance Letter</strong>.</li>
+      <li>This Acceptance Letter is required to apply for your <strong>Airport Pass</strong>, which grants you access to ${location ? `your workstation at <strong>${location}</strong>` : 'your assigned work location'}.</li>
+      <li>Bring a valid form of identification (National ID or passport) when you come to collect your letter.</li>
+    </ol>
+    <p>Airport passes can take several days to process, so please collect your Acceptance Letter as soon as possible to avoid delaying your reporting date.</p>
+    <p>If you have any questions, please contact the CAA HR &amp; Recruitment Team.</p>
+    <p>Regards,<br>CAA HR &amp; Recruitment Team</p>
+  `);
+  return { subject: `Internship Accepted — Next Steps for ${jobTitle}`, html };
+}
+
 function bulkEmail({ candidateName, subject, body }) {
   const html = wrap(subject, `
     <p>Dear <strong>${candidateName}</strong>,</p>
@@ -145,4 +167,4 @@ function bulkEmail({ candidateName, subject, body }) {
   return { subject, html };
 }
 
-module.exports = { sendMail, applicationStatusEmail, welcomeEmail, bulkEmail, verificationEmail, passwordResetEmail, isConfigured };
+module.exports = { sendMail, applicationStatusEmail, welcomeEmail, bulkEmail, verificationEmail, passwordResetEmail, internAcceptanceEmail, isConfigured };

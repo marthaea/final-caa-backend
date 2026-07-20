@@ -15,11 +15,24 @@ const audit                                    = require('../utils/audit');
 const mailer                                   = require('../utils/mailer');
 
 const REFRESH_COOKIE = 'caa_refresh';
-const COOKIE_OPTIONS = {
+// The frontend (Netlify) and this API (Railway/Render) live on different domains,
+// so from the browser's perspective every request is cross-site. Cross-site cookies
+// require SameSite=None, and browsers silently drop SameSite=None cookies that
+// aren't also Secure — so both must hold in any real deployment, regardless of
+// whether NODE_ENV happens to be set to 'production' there. We only relax this for
+// local development, where frontend and backend share http://localhost and Secure
+// cookies aren't deliverable at all.
+// clearCookie must receive the same options the cookie was set with — except
+// maxAge, which Express deprecates there — so the clear variant drops it
+const IS_LOCAL_DEV = process.env.NODE_ENV === 'development';
+const CLEAR_COOKIE_OPTIONS = {
   httpOnly: true,
-  secure:   process.env.NODE_ENV === 'production', // HTTPS-only in prod
-  sameSite: 'strict',
-  maxAge:   7 * 24 * 60 * 60 * 1000 // 7 days in ms
+  secure:   !IS_LOCAL_DEV,
+  sameSite: IS_LOCAL_DEV ? 'lax' : 'none'
+};
+const COOKIE_OPTIONS = {
+  ...CLEAR_COOKIE_OPTIONS,
+  maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days in ms
 };
 
 const RESET_TOKEN_TTL_MS = 60 * 60 * 1000; // reset links valid for 1 hour
@@ -131,12 +144,14 @@ router.post('/login', authLimiter, loginRules, validate, asyncHandler(async (req
 
   res.cookie(REFRESH_COOKIE, refreshToken, COOKIE_OPTIONS);
 
-  await audit.log(pool, {
+  // Fire-and-forget — the client shouldn't wait on an audit-log write to get its
+  // token back. Matches how welcome/verification emails are handled just above.
+  audit.log(pool, {
     actor:  `${user.first_name} ${user.last_name}`,
     role:   user.admin_role || user.account_type,
     action: audit.ACTIONS.USER_LOGGED_IN,
     target: user.email
-  });
+  }).catch(err => console.error('[audit] login log failed:', err.message));
 
   return ok(res, {
     id: user.id, email: user.email,
@@ -161,7 +176,7 @@ router.post('/refresh-token', asyncHandler(async (req, res) => {
   try {
     decoded = verifyRefreshToken(refreshToken);
   } catch (_) {
-    res.clearCookie(REFRESH_COOKIE, COOKIE_OPTIONS);
+    res.clearCookie(REFRESH_COOKIE, CLEAR_COOKIE_OPTIONS);
     return fail(res, 'Invalid or expired refresh token', 401);
   }
 
@@ -170,13 +185,13 @@ router.post('/refresh-token', asyncHandler(async (req, res) => {
   const user = rows[0];
 
   if (!user.is_active) {
-    res.clearCookie(REFRESH_COOKIE, COOKIE_OPTIONS);
+    res.clearCookie(REFRESH_COOKIE, CLEAR_COOKIE_OPTIONS);
     return fail(res, 'This account has been deactivated. Contact support.', 403);
   }
 
   // Token issued before the last logout / password change — force re-login
   if ((decoded.tv || 0) !== (user.token_version || 0)) {
-    res.clearCookie(REFRESH_COOKIE, COOKIE_OPTIONS);
+    res.clearCookie(REFRESH_COOKIE, CLEAR_COOKIE_OPTIONS);
     return fail(res, 'Session expired. Please log in again.', 401);
   }
 
@@ -335,7 +350,7 @@ router.post('/reset-password', authLimiter, resetPasswordRules, validate, asyncH
 // then clears the cookie.
 router.post('/logout', verifyToken, asyncHandler(async (req, res) => {
   await pool.query('UPDATE users SET token_version = token_version + 1 WHERE id = ?', [req.user.id]);
-  res.clearCookie(REFRESH_COOKIE, COOKIE_OPTIONS);
+  res.clearCookie(REFRESH_COOKIE, CLEAR_COOKIE_OPTIONS);
   return ok(res, { message: 'Logged out' });
 }));
 
