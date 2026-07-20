@@ -3,10 +3,11 @@ const pool = require('../config/db');
 const asyncHandler = require('../utils/asyncHandler');
 const { verifyToken } = require('../middleware/auth');
 const { requirePerm } = require('../middleware/rbac');
-const { ok, okList, fail } = require('../utils/format');
+const { ok, okList, fail, logAudit } = require('../utils/format');
 
 function mapStaff(row) {
   return {
+    id: row.id,
     empNo: row.employee_number,
     firstName: row.first_name,
     lastName: row.last_name,
@@ -33,6 +34,32 @@ router.get('/', verifyToken, requirePerm('canViewStaff'), asyncHandler(async (re
   sql += ' ORDER BY last_name ASC';
   const [rows] = await pool.query(sql, params);
   return okList(res, rows.map(mapStaff));
+}));
+
+// POST /api/staff
+router.post('/', verifyToken, requirePerm('canViewStaff'), asyncHandler(async (req, res) => {
+  const { employeeNumber, firstName, lastName, dept, position, email, joined, status } = req.body;
+
+  if (!employeeNumber || !String(employeeNumber).trim() || !firstName || !lastName) {
+    return fail(res, 'Employee number, first name, and last name are required');
+  }
+
+  const [existing] = await pool.query(
+    'SELECT id FROM staff WHERE employee_number = ?', [employeeNumber]
+  );
+  if (existing.length > 0) {
+    return fail(res, 'A staff record with this employee number already exists', 409);
+  }
+
+  const [result] = await pool.query(
+    `INSERT INTO staff (employee_number, first_name, last_name, dept, position, email, joined_date, status)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    [employeeNumber, firstName, lastName, dept || null, position || null, email || null, joined || null, status || 'Active']
+  );
+
+  const [rows] = await pool.query('SELECT * FROM staff WHERE id = ?', [result.insertId]);
+  await logAudit(pool, req, 'Added staff record', `${firstName} ${lastName} (${employeeNumber})`);
+  return ok(res, mapStaff(rows[0]), 201);
 }));
 
 // GET /api/staff/verify/:employeeNumber  (public — needed before account exists)
