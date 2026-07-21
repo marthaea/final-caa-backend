@@ -6,7 +6,8 @@ const BLANK_PERMS = {
   canViewStaff: false, canExport: false, canViewAudit: false,
   canManageSettings: false, canGrantPermissions: false,
   canReviewJob: false, canApproveJob: false, canManageDepartments: false,
-  canManageAdmins: false, canAssignRights: false
+  canManageAdmins: false, canAssignRights: false,
+  canScheduleAssessment: false, canRecordAssessment: false, canManageBackgroundChecks: false
 };
 
 const ROLE_DEFAULTS = {
@@ -17,13 +18,15 @@ const ROLE_DEFAULTS = {
     canViewStaff: true, canExport: true, canViewAudit: true,
     canManageSettings: true, canGrantPermissions: true,
     canReviewJob: true, canApproveJob: true, canManageDepartments: true,
-    canManageAdmins: true, canAssignRights: true
+    canManageAdmins: true, canAssignRights: true,
+    canScheduleAssessment: true, canRecordAssessment: true, canManageBackgroundChecks: true
   },
   hr: {
     ...BLANK_PERMS,
     canViewApplications: true, canShortlist: true, canScreenInterns: true,
     canSendNotifications: true, canManageJobs: true, canManageCriteria: true,
-    canViewStaff: true, canExport: true
+    canViewStaff: true, canExport: true,
+    canScheduleAssessment: true, canManageBackgroundChecks: true
   },
   recruiter: {
     ...BLANK_PERMS,
@@ -37,7 +40,8 @@ const ROLE_DEFAULTS = {
   hr_officer: {
     ...BLANK_PERMS,
     canViewApplications: true, canShortlist: true, canManageJobs: true,
-    canManageCriteria: true, canSendNotifications: true
+    canManageCriteria: true, canSendNotifications: true,
+    canScheduleAssessment: true, canManageBackgroundChecks: true
   },
   it_admin: {
     ...BLANK_PERMS,
@@ -46,17 +50,23 @@ const ROLE_DEFAULTS = {
   dhra: {
     ...BLANK_PERMS,
     canViewApplications: true, canShortlist: true, canApproveJob: true,
-    canExport: true, canViewAudit: true
+    canExport: true, canViewAudit: true,
+    canScheduleAssessment: true, canRecordAssessment: true, canManageBackgroundChecks: true
   },
   hod: {
     ...BLANK_PERMS,
-    canViewApplications: true, canShortlist: true, canReviewJob: true
+    canViewApplications: true, canShortlist: true, canReviewJob: true,
+    canRecordAssessment: true
   }
 };
 
 const QUAL_LEVELS = ['O-Level', 'A-Level', 'Certificate', 'Diploma', 'Degree', 'Masters', 'PhD'];
 
-const STATUSES = ['Pending', 'Under Review', 'Shortlisted', 'Interview', 'Offered', 'Declined'];
+const STATUSES = [
+  'Pending', 'Under Review', 'Shortlisted', 'Interview',
+  'Assessment Scheduled', 'Assessment Complete', 'Shortlisted II', 'Background Check',
+  'Offered', 'Declined'
+];
 
 const ADMIN_ROLES = ['super', 'hr', 'recruiter', 'auditor', 'hr_officer', 'it_admin', 'dhra', 'hod'];
 
@@ -66,7 +76,8 @@ const PERM_KEYS = [
   'canViewStaff', 'canExport', 'canViewAudit',
   'canManageSettings', 'canGrantPermissions',
   'canReviewJob', 'canApproveJob', 'canManageDepartments',
-  'canManageAdmins', 'canAssignRights'
+  'canManageAdmins', 'canAssignRights',
+  'canScheduleAssessment', 'canRecordAssessment', 'canManageBackgroundChecks'
 ];
 
 module.exports = { ROLE_DEFAULTS, QUAL_LEVELS, STATUSES, PERM_KEYS, ADMIN_ROLES };

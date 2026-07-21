@@ -158,6 +158,24 @@ function internAcceptanceEmail({ candidateName, jobTitle, location }) {
   return { subject: `Internship Accepted — Next Steps for ${jobTitle}`, html };
 }
 
+// Sent to a candidate's listed referee once they reach the background-check
+// stage. Referees aren't system users, so this doesn't carry a verification
+// link — it just asks them to reply directly or call HR; the response is
+// then logged manually against the referee's record (see backgroundCheckRoutes.js).
+function backgroundCheckRequestEmail({ refereeName, candidateName, jobTitle }) {
+  const html = wrap('Reference Request', `
+    <p>Dear <strong>${refereeName || 'Sir/Madam'}</strong>,</p>
+    <p>You have been listed as a referee for <strong>${candidateName}</strong>, who has applied for the position of
+       <strong>${jobTitle}</strong> at the Uganda Civil Aviation Authority.</p>
+    <p>As part of our recruitment process, we would be grateful if you could confirm your professional relationship with
+       the applicant and briefly comment on their character and suitability for this role.</p>
+    <p>Please reply directly to this email, or contact the CAA HR &amp; Recruitment Team by phone, at your convenience.</p>
+    <p>Thank you for your time and assistance.</p>
+    <p>Regards,<br>CAA HR &amp; Recruitment Team</p>
+  `);
+  return { subject: `Reference Request — ${candidateName} (${jobTitle})`, html };
+}
+
 function bulkEmail({ candidateName, subject, body }) {
   const html = wrap(subject, `
     <p>Dear <strong>${candidateName}</strong>,</p>
@@ -167,4 +185,4 @@ function bulkEmail({ candidateName, subject, body }) {
   return { subject, html };
 }
 
-module.exports = { sendMail, applicationStatusEmail, welcomeEmail, bulkEmail, verificationEmail, passwordResetEmail, internAcceptanceEmail, isConfigured };
+module.exports = { sendMail, applicationStatusEmail, welcomeEmail, bulkEmail, verificationEmail, passwordResetEmail, internAcceptanceEmail, backgroundCheckRequestEmail, isConfigured };

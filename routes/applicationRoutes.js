@@ -33,7 +33,11 @@ function mapApp(row) {
     candidateEmail: row.candidate_email,
     cgpa: row.cgpa != null ? parseFloat(row.cgpa) : null,
     university: row.university || null,
-    screeningAnswers: row.screening_answers || null
+    screeningAnswers: row.screening_answers || null,
+    deploymentStation: row.deployment_station || null,
+    deploymentDate: row.deployment_date
+      ? (row.deployment_date instanceof Date ? row.deployment_date.toISOString().slice(0, 10) : String(row.deployment_date))
+      : null
   };
 }
 
@@ -306,6 +310,21 @@ router.put('/:id/status', verifyToken, requirePerm('canShortlist'), statusUpdate
     `${app.candidate_name} (${app.abbr})`
   );
 
+  const [updated] = await pool.query('SELECT * FROM applications WHERE id = ?', [req.params.id]);
+  return ok(res, mapApp(updated[0]));
+}));
+
+// PUT /api/applications/:id/deployment — station/reporting date once an offer is accepted
+router.put('/:id/deployment', verifyToken, requirePerm('canManageBackgroundChecks'), asyncHandler(async (req, res) => {
+  const { deploymentStation, deploymentDate } = req.body;
+  const [existing] = await pool.query('SELECT * FROM applications WHERE id = ?', [req.params.id]);
+  if (existing.length === 0) return fail(res, 'Application not found', 404);
+
+  await pool.query(
+    'UPDATE applications SET deployment_station = ?, deployment_date = ? WHERE id = ?',
+    [deploymentStation || null, deploymentDate || null, req.params.id]
+  );
+  await logAudit(pool, req, 'Recorded candidate deployment', `${existing[0].candidate_name} (${existing[0].abbr})`);
   const [updated] = await pool.query('SELECT * FROM applications WHERE id = ?', [req.params.id]);
   return ok(res, mapApp(updated[0]));
 }));

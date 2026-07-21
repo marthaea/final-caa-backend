@@ -22,7 +22,13 @@ const COLUMNS = [
   { table: 'permission_overrides', name: 'can_approve_job',        ddl: 'TINYINT(1) NOT NULL DEFAULT 0' },
   { table: 'permission_overrides', name: 'can_manage_departments', ddl: 'TINYINT(1) NOT NULL DEFAULT 0' },
   { table: 'permission_overrides', name: 'can_manage_admins',      ddl: 'TINYINT(1) NOT NULL DEFAULT 0' },
-  { table: 'permission_overrides', name: 'can_assign_rights',      ddl: 'TINYINT(1) NOT NULL DEFAULT 0' }
+  { table: 'permission_overrides', name: 'can_assign_rights',      ddl: 'TINYINT(1) NOT NULL DEFAULT 0' },
+  // Phase 2b — assessment / background-check / deployment
+  { table: 'permission_overrides', name: 'can_schedule_assessment',      ddl: 'TINYINT(1) NOT NULL DEFAULT 0' },
+  { table: 'permission_overrides', name: 'can_record_assessment',        ddl: 'TINYINT(1) NOT NULL DEFAULT 0' },
+  { table: 'permission_overrides', name: 'can_manage_background_checks', ddl: 'TINYINT(1) NOT NULL DEFAULT 0' },
+  { table: 'applications', name: 'deployment_station', ddl: 'VARCHAR(255) NULL' },
+  { table: 'applications', name: 'deployment_date',    ddl: 'DATE NULL' }
 ];
 
 // Existing ENUM columns that need more values added — MODIFY is idempotent
@@ -33,6 +39,11 @@ const ENUM_EXPANSIONS = [
     table: 'users', column: 'admin_role',
     ddl: "ENUM('super','hr','recruiter','auditor','hr_officer','it_admin','dhra','hod') NULL",
     containsCheck: 'hod'
+  },
+  {
+    table: 'applications', column: 'status',
+    ddl: "ENUM('Pending','Under Review','Shortlisted','Interview','Assessment Scheduled','Assessment Complete','Shortlisted II','Background Check','Offered','Declined','Withdrawn') NOT NULL DEFAULT 'Pending'",
+    containsCheck: 'Assessment Scheduled'
   }
 ];
 
@@ -47,6 +58,44 @@ const TABLES = [
       created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
       updated_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
       FOREIGN KEY (head_user_id) REFERENCES users(id) ON DELETE SET NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`
+  },
+  {
+    name: 'assessments',
+    ddl: `CREATE TABLE IF NOT EXISTS assessments (
+      id              INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+      application_id  INT UNSIGNED NOT NULL,
+      type            ENUM('written','psychometric','interview','practical') NOT NULL,
+      scheduled_at    DATETIME NULL,
+      venue           VARCHAR(255) NULL,
+      scheduled_by    INT UNSIGNED NULL,
+      score           DECIMAL(5,2) NULL,
+      passed          TINYINT(1) NULL,
+      notes           TEXT NULL,
+      recorded_by     INT UNSIGNED NULL,
+      created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      UNIQUE KEY uniq_app_type (application_id, type),
+      FOREIGN KEY (application_id) REFERENCES applications(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`
+  },
+  {
+    name: 'background_checks',
+    ddl: `CREATE TABLE IF NOT EXISTS background_checks (
+      id              INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+      application_id  INT UNSIGNED NOT NULL,
+      referee_index   TINYINT UNSIGNED NOT NULL,
+      referee_name    VARCHAR(255) NULL,
+      referee_email   VARCHAR(255) NULL,
+      referee_phone   VARCHAR(50)  NULL,
+      status          ENUM('pending','contacted','verified','could_not_reach','declined_to_confirm') NOT NULL DEFAULT 'pending',
+      notes           TEXT NULL,
+      contacted_at    DATETIME NULL,
+      contacted_by    INT UNSIGNED NULL,
+      created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      UNIQUE KEY uniq_app_referee (application_id, referee_index),
+      FOREIGN KEY (application_id) REFERENCES applications(id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`
   }
 ];
