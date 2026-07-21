@@ -18,7 +18,8 @@ const createJobRules = [
   body('requiredExperience').optional().isInt({ min: 0 }).withMessage('requiredExperience must be ≥ 0'),
   body('requiredQualification').isIn(QUAL_LEVELS).withMessage(`requiredQualification must be one of: ${QUAL_LEVELS.join(', ')}`),
   body('description').optional({ checkFalsy: true }).isString().isLength({ max: 10000 }),
-  body('featured').optional().isBoolean()
+  body('featured').optional().isBoolean(),
+  body('departmentId').optional({ checkFalsy: true }).isInt().withMessage('departmentId must be an integer')
 ];
 
 const updateJobRules = [
@@ -35,7 +36,8 @@ const updateJobRules = [
   body('requiredExperience').optional().isInt({ min: 0 }),
   body('requiredQualification').optional().isIn(QUAL_LEVELS),
   body('description').optional({ checkFalsy: true }).isString().isLength({ max: 10000 }),
-  body('featured').optional().isBoolean()
+  body('featured').optional().isBoolean(),
+  body('departmentId').optional({ checkFalsy: true }).isInt().withMessage('departmentId must be an integer')
 ];
 
 module.exports = { createJobRules, updateJobRules };

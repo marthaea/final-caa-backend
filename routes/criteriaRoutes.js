@@ -14,6 +14,7 @@ function mapCriteria(row) {
     requiredKeywords: row.required_keywords || [],
     disqualifyingUniversities: row.disqualifying_universities || [],
     screeningQuestions: row.screening_questions || [],
+    assessmentTypes: row.assessment_types || [],
     notes: row.notes
   };
 }
@@ -32,7 +33,7 @@ router.put('/:jobId', verifyToken, requirePerm('canManageCriteria'), asyncHandle
   const { jobId } = req.params;
   const {
     minCgpa, minExperienceYears, requiredQualLevel,
-    requiredKeywords, disqualifyingUniversities, screeningQuestions, notes
+    requiredKeywords, disqualifyingUniversities, screeningQuestions, assessmentTypes, notes
   } = req.body;
 
   // Verify job exists
@@ -42,8 +43,8 @@ router.put('/:jobId', verifyToken, requirePerm('canManageCriteria'), asyncHandle
   await pool.query(
     `INSERT INTO criteria
        (job_id, min_cgpa, min_experience_years, required_qual_level,
-        required_keywords, disqualifying_universities, screening_questions, notes)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        required_keywords, disqualifying_universities, screening_questions, assessment_types, notes)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON DUPLICATE KEY UPDATE
        min_cgpa                 = VALUES(min_cgpa),
        min_experience_years     = VALUES(min_experience_years),
@@ -51,6 +52,7 @@ router.put('/:jobId', verifyToken, requirePerm('canManageCriteria'), asyncHandle
        required_keywords        = VALUES(required_keywords),
        disqualifying_universities = VALUES(disqualifying_universities),
        screening_questions      = VALUES(screening_questions),
+       assessment_types         = VALUES(assessment_types),
        notes                    = VALUES(notes),
        updated_at               = NOW()`,
     [
@@ -61,6 +63,7 @@ router.put('/:jobId', verifyToken, requirePerm('canManageCriteria'), asyncHandle
       JSON.stringify(requiredKeywords || []),
       JSON.stringify(disqualifyingUniversities || []),
       JSON.stringify(screeningQuestions || []),
+      JSON.stringify(assessmentTypes || []),
       notes || null
     ]
   );

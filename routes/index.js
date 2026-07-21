@@ -12,6 +12,8 @@ router.use('/audit',         require('./auditRoutes'));
 router.use('/emails',        require('./emailRoutes'));
 router.use('/analytics',     require('./analyticsRoutes'));
 router.use('/staff',         require('./staffRoutes'));
+router.use('/departments',   require('./departmentRoutes'));
+router.use('/users',         require('./userRoutes'));
 router.use('/chatbot',       require('./chatbotRoutes'));
 
 module.exports = router;

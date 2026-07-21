@@ -4,6 +4,7 @@ const asyncHandler = require('../utils/asyncHandler');
 const { verifyToken } = require('../middleware/auth');
 const { requirePerm } = require('../middleware/rbac');
 const { ok, okList, logAudit } = require('../utils/format');
+const { ROLE_DEFAULTS, ADMIN_ROLES } = require('../config/constants');
 
 function mapOverride(row) {
   return {
@@ -19,9 +20,23 @@ function mapOverride(row) {
     canExport:            !!row.can_export,
     canViewAudit:         !!row.can_view_audit,
     canManageSettings:    !!row.can_manage_settings,
-    canGrantPermissions:  !!row.can_grant_permissions
+    canGrantPermissions:  !!row.can_grant_permissions,
+    canReviewJob:         !!row.can_review_job,
+    canApproveJob:        !!row.can_approve_job,
+    canManageDepartments: !!row.can_manage_departments,
+    canManageAdmins:      !!row.can_manage_admins,
+    canAssignRights:      !!row.can_assign_rights
   };
 }
+
+// GET /api/permissions/roles/defaults
+// The single source of truth for role→permission defaults — the frontend
+// fetches this instead of hardcoding its own copy (previously 3 separate
+// hardcoded copies existed across the two repos and had to be kept in sync
+// by hand).
+router.get('/roles/defaults', verifyToken, asyncHandler(async (req, res) => {
+  return ok(res, { roles: ADMIN_ROLES, defaults: ROLE_DEFAULTS });
+}));
 
 // GET /api/permissions
 router.get('/', verifyToken, requirePerm('canGrantPermissions'), asyncHandler(async (req, res) => {
@@ -36,15 +51,18 @@ router.put('/', verifyToken, requirePerm('canGrantPermissions'), asyncHandler(as
     canViewApplications, canShortlist, canScreenInterns,
     canSendNotifications, canManageJobs, canManageCriteria,
     canViewStaff, canExport, canViewAudit,
-    canManageSettings, canGrantPermissions
+    canManageSettings, canGrantPermissions,
+    canReviewJob, canApproveJob, canManageDepartments,
+    canManageAdmins, canAssignRights
   } = req.body;
 
   await pool.query(
     `INSERT INTO permission_overrides
        (email, role, can_view_applications, can_shortlist, can_screen_interns,
         can_send_notifications, can_manage_jobs, can_manage_criteria,
-        can_view_staff, can_export, can_view_audit, can_manage_settings, can_grant_permissions)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        can_view_staff, can_export, can_view_audit, can_manage_settings, can_grant_permissions,
+        can_review_job, can_approve_job, can_manage_departments, can_manage_admins, can_assign_rights)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON DUPLICATE KEY UPDATE
        role                    = VALUES(role),
        can_view_applications   = VALUES(can_view_applications),
@@ -58,6 +76,11 @@ router.put('/', verifyToken, requirePerm('canGrantPermissions'), asyncHandler(as
        can_view_audit          = VALUES(can_view_audit),
        can_manage_settings     = VALUES(can_manage_settings),
        can_grant_permissions   = VALUES(can_grant_permissions),
+       can_review_job          = VALUES(can_review_job),
+       can_approve_job         = VALUES(can_approve_job),
+       can_manage_departments  = VALUES(can_manage_departments),
+       can_manage_admins       = VALUES(can_manage_admins),
+       can_assign_rights       = VALUES(can_assign_rights),
        updated_at              = NOW()`,
     [
       email, role,
@@ -71,7 +94,12 @@ router.put('/', verifyToken, requirePerm('canGrantPermissions'), asyncHandler(as
       canExport            ? 1 : 0,
       canViewAudit         ? 1 : 0,
       canManageSettings    ? 1 : 0,
-      canGrantPermissions  ? 1 : 0
+      canGrantPermissions  ? 1 : 0,
+      canReviewJob         ? 1 : 0,
+      canApproveJob        ? 1 : 0,
+      canManageDepartments ? 1 : 0,
+      canManageAdmins      ? 1 : 0,
+      canAssignRights      ? 1 : 0
     ]
   );
 
