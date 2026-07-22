@@ -23,8 +23,10 @@ function mapSettings(row) {
   };
 }
 
-// GET /api/settings
-router.get('/', verifyToken, requirePerm('canManageSettings'), asyncHandler(async (req, res) => {
+// GET /api/settings — intentionally public. Every visitor (logged in or not)
+// needs this on load for things like whether internal jobs show externally —
+// it must never require auth. Only PUT (below) is admin-gated.
+router.get('/', asyncHandler(async (req, res) => {
   const [rows] = await pool.query('SELECT * FROM settings LIMIT 1');
   return ok(res, mapSettings(rows[0]));
 }));
