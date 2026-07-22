@@ -8,7 +8,7 @@ const { ok, okList } = require('../utils/format');
 function mapEntry(row) {
   return {
     id: row.id,
-    at: new Date(row.created_at).toISOString(),
+    at: new Date(row.at).toISOString(),
     actor: row.actor,
     role: row.role,
     action: row.action,
@@ -27,7 +27,7 @@ router.get('/', verifyToken, requirePerm('canViewAudit'), asyncHandler(async (re
     const like = `%${search}%`;
     params.push(like, like, like);
   }
-  sql += ' ORDER BY created_at DESC LIMIT ?';
+  sql += ' ORDER BY at DESC LIMIT ?';
   params.push(limit);
   const [rows] = await pool.query(sql, params);
   return res.json({ success: true, data: rows.map(mapEntry), total: rows.length });
