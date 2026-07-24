@@ -6,6 +6,7 @@ const { requirePerm, requireRole } = require('../middleware/rbac');
 const { ok, okList, fail, logAudit, toCamel } = require('../utils/format');
 const validate = require('../middleware/validate');
 const { createJobRules, updateJobRules } = require('../validators/jobValidators');
+const { sendMail, jobSubmittedForReviewEmail, jobPendingApprovalEmail, jobDeclinedEmail } = require('../utils/mailer');
 
 let _settingsCache = null;
 let _settingsCacheTime = 0;
@@ -41,8 +42,30 @@ function mapJob(row) {
     featured: !!row.featured,
     status: row.status,
     departmentId: row.department_id,
-    declineReason: row.decline_reason
+    declineReason: row.decline_reason,
+    jobRef: row.job_ref,
+    reportsTo: row.reports_to,
+    vacancies: row.vacancies,
+    aboutRole: row.about_role,
+    accountabilities: row.accountabilities || [],
+    specialSkills: row.special_skills || []
   };
+}
+
+// Notifies the job's original creator (usually the HR Officer) that their
+// listing was declined and why — best-effort, never blocks the decline itself.
+function notifyCreatorOfDecline(job, stage, reason, decliner) {
+  if (!job.created_by) return;
+  pool.query('SELECT email, first_name, last_name FROM users WHERE id = ?', [job.created_by])
+    .then(([rows]) => {
+      if (rows.length === 0) return;
+      const creator = rows[0];
+      const { subject, html } = jobDeclinedEmail({
+        recipientName: `${creator.first_name} ${creator.last_name}`, jobTitle: job.title, stage, reason,
+        declinedBy: `${decliner.firstName || ''} ${decliner.lastName || ''}`.trim(),
+      });
+      return sendMail({ to: creator.email, subject, html });
+    }).catch((err) => console.error('[jobRoutes] decline notification failed:', err.message));
 }
 
 // GET /api/jobs
@@ -101,7 +124,8 @@ router.post('/', verifyToken, requirePerm('canManageJobs'), createJobRules, vali
   const {
     title, dept, deptKey, location, salary, salaryBand, type,
     closes, closesAt, visibility, minAge, requiredExperience,
-    requiredQualification, description, featured, departmentId
+    requiredQualification, description, featured, departmentId,
+    jobRef, reportsTo, vacancies, aboutRole, accountabilities, specialSkills
   } = req.body;
 
   if (!title || !dept || !deptKey || !location || !salary || !salaryBand ||
@@ -118,13 +142,16 @@ router.post('/', verifyToken, requirePerm('canManageJobs'), createJobRules, vali
     `INSERT INTO jobs
        (abbr, title, dept, dept_key, location, salary, salary_band, type,
         closes, closes_at, visibility, min_age, required_experience,
-        required_qualification, description, featured, created_by, status, department_id)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'draft', ?)`,
+        required_qualification, description, featured, created_by, status, department_id,
+        job_ref, reports_to, vacancies, about_role, accountabilities, special_skills)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'draft', ?, ?, ?, ?, ?, ?, ?)`,
     [
       abbr, title, dept, deptKey, location, salary, salaryBand, type,
       closes, closesAt, visibility, minAge || 21, requiredExperience || 0,
       requiredQualification, description || null, featured ? 1 : 0, req.user.id,
-      departmentId || null
+      departmentId || null,
+      jobRef || null, reportsTo || null, vacancies || 1, aboutRole || null,
+      JSON.stringify(accountabilities || []), JSON.stringify(specialSkills || [])
     ]
   );
 
@@ -141,7 +168,8 @@ router.put('/:id', verifyToken, requirePerm('canManageJobs'), updateJobRules, va
   const {
     title, dept, deptKey, location, salary, salaryBand, type,
     closes, closesAt, visibility, minAge, requiredExperience,
-    requiredQualification, description, featured, departmentId
+    requiredQualification, description, featured, departmentId,
+    jobRef, reportsTo, vacancies, aboutRole, accountabilities, specialSkills
   } = req.body;
 
   await pool.query(
@@ -161,7 +189,13 @@ router.put('/:id', verifyToken, requirePerm('canManageJobs'), updateJobRules, va
       required_qualification = COALESCE(?, required_qualification),
       description            = COALESCE(?, description),
       featured               = COALESCE(?, featured),
-      department_id          = COALESCE(?, department_id)
+      department_id          = COALESCE(?, department_id),
+      job_ref                = COALESCE(?, job_ref),
+      reports_to              = COALESCE(?, reports_to),
+      vacancies               = COALESCE(?, vacancies),
+      about_role              = COALESCE(?, about_role),
+      accountabilities        = COALESCE(?, accountabilities),
+      special_skills          = COALESCE(?, special_skills)
      WHERE id = ?`,
     [
       title || null, dept || null, deptKey || null, location || null,
@@ -171,6 +205,12 @@ router.put('/:id', verifyToken, requirePerm('canManageJobs'), updateJobRules, va
       requiredQualification || null, description !== undefined ? description : null,
       featured != null ? (featured ? 1 : 0) : null,
       departmentId != null ? departmentId : null,
+      jobRef !== undefined ? jobRef : null,
+      reportsTo !== undefined ? reportsTo : null,
+      vacancies != null ? vacancies : null,
+      aboutRole !== undefined ? aboutRole : null,
+      accountabilities !== undefined ? JSON.stringify(accountabilities) : null,
+      specialSkills !== undefined ? JSON.stringify(specialSkills) : null,
       req.params.id
     ]
   );
@@ -196,6 +236,25 @@ router.put('/:id/submit-for-review', verifyToken, requirePerm('canManageJobs'), 
   }
   await pool.query("UPDATE jobs SET status = 'pending_review', decline_reason = NULL WHERE id = ?", [req.params.id]);
   await logAudit(pool, req, 'Submitted job for department review', job.title);
+
+  // Notify the job's Head of Department, if one is assigned — best-effort,
+  // never blocks the workflow transition if it fails or SMTP isn't configured.
+  if (job.department_id) {
+    pool.query(
+      `SELECT u.email, u.first_name, u.last_name FROM departments d
+       JOIN users u ON u.id = d.head_user_id
+       WHERE d.id = ?`, [job.department_id]
+    ).then(([rows]) => {
+      if (rows.length === 0) return;
+      const hod = rows[0];
+      const { subject, html } = jobSubmittedForReviewEmail({
+        hodName: `${hod.first_name} ${hod.last_name}`, jobTitle: job.title,
+        submittedBy: `${req.user.firstName || ''} ${req.user.lastName || ''}`.trim(),
+      });
+      return sendMail({ to: hod.email, subject, html });
+    }).catch((err) => console.error('[jobRoutes] HOD notification failed:', err.message));
+  }
+
   const [jobs] = await pool.query('SELECT * FROM jobs WHERE id = ?', [req.params.id]);
   return ok(res, mapJob(jobs[0]));
 }));
@@ -221,10 +280,23 @@ router.put('/:id/review', verifyToken, requirePerm('canReviewJob'), asyncHandler
   if (approve) {
     await pool.query("UPDATE jobs SET status = 'pending_approval', reviewed_by = ? WHERE id = ?", [req.user.id, req.params.id]);
     await logAudit(pool, req, 'Approved job at department review', job.title);
+
+    // Notify every active DHRA user — best-effort, never blocks the transition.
+    pool.query(
+      `SELECT email, first_name, last_name FROM users
+       WHERE account_type = 'admin' AND admin_role = 'dhra' AND is_active = 1`
+    ).then(([dhras]) => Promise.all(dhras.map((d) => {
+      const { subject, html } = jobPendingApprovalEmail({
+        dhraName: `${d.first_name} ${d.last_name}`, jobTitle: job.title,
+        reviewedBy: `${req.user.firstName || ''} ${req.user.lastName || ''}`.trim(),
+      });
+      return sendMail({ to: d.email, subject, html });
+    }))).catch((err) => console.error('[jobRoutes] DHRA notification failed:', err.message));
   } else {
     if (!reason || !String(reason).trim()) return fail(res, 'A reason is required to decline a job');
     await pool.query("UPDATE jobs SET status = 'draft', reviewed_by = ?, decline_reason = ? WHERE id = ?", [req.user.id, reason, req.params.id]);
     await logAudit(pool, req, 'Declined job at department review', `${job.title} — ${reason}`);
+    notifyCreatorOfDecline(job, 'department review', reason, req.user);
   }
   const [jobs] = await pool.query('SELECT * FROM jobs WHERE id = ?', [req.params.id]);
   return ok(res, mapJob(jobs[0]));
@@ -245,6 +317,7 @@ router.put('/:id/approve', verifyToken, requirePerm('canApproveJob'), asyncHandl
     if (!reason || !String(reason).trim()) return fail(res, 'A reason is required to decline a job');
     await pool.query("UPDATE jobs SET status = 'draft', approved_by = ?, decline_reason = ? WHERE id = ?", [req.user.id, reason, req.params.id]);
     await logAudit(pool, req, 'Declined job at final approval', `${job.title} — ${reason}`);
+    notifyCreatorOfDecline(job, 'final approval', reason, req.user);
   }
   const [jobs] = await pool.query('SELECT * FROM jobs WHERE id = ?', [req.params.id]);
   return ok(res, mapJob(jobs[0]));

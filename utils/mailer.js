@@ -158,22 +158,42 @@ function internAcceptanceEmail({ candidateName, jobTitle, location }) {
   return { subject: `Internship Accepted — Next Steps for ${jobTitle}`, html };
 }
 
-// Sent to a candidate's listed referee once they reach the background-check
-// stage. Referees aren't system users, so this doesn't carry a verification
-// link — it just asks them to reply directly or call HR; the response is
-// then logged manually against the referee's record (see backgroundCheckRoutes.js).
-function backgroundCheckRequestEmail({ refereeName, candidateName, jobTitle }) {
-  const html = wrap('Reference Request', `
-    <p>Dear <strong>${refereeName || 'Sir/Madam'}</strong>,</p>
-    <p>You have been listed as a referee for <strong>${candidateName}</strong>, who has applied for the position of
-       <strong>${jobTitle}</strong> at the Uganda Civil Aviation Authority.</p>
-    <p>As part of our recruitment process, we would be grateful if you could confirm your professional relationship with
-       the applicant and briefly comment on their character and suitability for this role.</p>
-    <p>Please reply directly to this email, or contact the CAA HR &amp; Recruitment Team by phone, at your convenience.</p>
-    <p>Thank you for your time and assistance.</p>
+// ── Job-approval workflow notifications ─────────────────────────────────────
+function jobSubmittedForReviewEmail({ hodName, jobTitle, submittedBy }) {
+  const html = wrap('Job Listing Awaiting Your Review', `
+    <p>Dear <strong>${hodName || 'Head of Department'}</strong>,</p>
+    <p>A new job listing has been submitted for your department review:</p>
+    <p style="font-size:16px;font-weight:700;color:#1a3a6e">${jobTitle}</p>
+    ${submittedBy ? `<p>Submitted by: ${submittedBy}</p>` : ''}
+    <p>Please log in to the <a href="${process.env.FRONTEND_URL || 'https://recruitment.caa.go.ug'}/admin?tab=review-jobs">HR Console</a> to review and approve or decline this listing.</p>
     <p>Regards,<br>CAA HR &amp; Recruitment Team</p>
   `);
-  return { subject: `Reference Request — ${candidateName} (${jobTitle})`, html };
+  return { subject: `Job Listing Awaiting Review — ${jobTitle}`, html };
+}
+
+function jobPendingApprovalEmail({ dhraName, jobTitle, reviewedBy }) {
+  const html = wrap('Job Listing Awaiting Final Approval', `
+    <p>Dear <strong>${dhraName || 'DHRA'}</strong>,</p>
+    <p>A job listing has cleared department review and is now awaiting final approval before publication:</p>
+    <p style="font-size:16px;font-weight:700;color:#1a3a6e">${jobTitle}</p>
+    ${reviewedBy ? `<p>Reviewed by: ${reviewedBy}</p>` : ''}
+    <p>Please log in to the <a href="${process.env.FRONTEND_URL || 'https://recruitment.caa.go.ug'}/admin?tab=approve-jobs">HR Console</a> to approve and publish, or decline this listing.</p>
+    <p>Regards,<br>CAA HR &amp; Recruitment Team</p>
+  `);
+  return { subject: `Job Listing Awaiting Final Approval — ${jobTitle}`, html };
+}
+
+function jobDeclinedEmail({ recipientName, jobTitle, stage, reason, declinedBy }) {
+  const html = wrap('Job Listing Declined', `
+    <p>Dear <strong>${recipientName || 'HR Officer'}</strong>,</p>
+    <p>Your job listing was declined at the <strong>${stage}</strong> stage and has been returned to draft:</p>
+    <p style="font-size:16px;font-weight:700;color:#1a3a6e">${jobTitle}</p>
+    ${declinedBy ? `<p>Declined by: ${declinedBy}</p>` : ''}
+    <p>Reason given: <em>${reason}</em></p>
+    <p>Please log in to the <a href="${process.env.FRONTEND_URL || 'https://recruitment.caa.go.ug'}/admin?tab=jobs">HR Console</a> to review the feedback, make changes, and resubmit.</p>
+    <p>Regards,<br>CAA HR &amp; Recruitment Team</p>
+  `);
+  return { subject: `Job Listing Declined — ${jobTitle}`, html };
 }
 
 function bulkEmail({ candidateName, subject, body }) {
@@ -185,4 +205,8 @@ function bulkEmail({ candidateName, subject, body }) {
   return { subject, html };
 }
 
-module.exports = { sendMail, applicationStatusEmail, welcomeEmail, bulkEmail, verificationEmail, passwordResetEmail, internAcceptanceEmail, backgroundCheckRequestEmail, isConfigured };
+module.exports = {
+  sendMail, applicationStatusEmail, welcomeEmail, bulkEmail, verificationEmail, passwordResetEmail,
+  internAcceptanceEmail, isConfigured,
+  jobSubmittedForReviewEmail, jobPendingApprovalEmail, jobDeclinedEmail,
+};

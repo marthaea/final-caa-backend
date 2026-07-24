@@ -23,12 +23,19 @@ const COLUMNS = [
   { table: 'permission_overrides', name: 'can_manage_departments', ddl: 'TINYINT(1) NOT NULL DEFAULT 0' },
   { table: 'permission_overrides', name: 'can_manage_admins',      ddl: 'TINYINT(1) NOT NULL DEFAULT 0' },
   { table: 'permission_overrides', name: 'can_assign_rights',      ddl: 'TINYINT(1) NOT NULL DEFAULT 0' },
-  // Phase 2b — assessment / background-check / deployment
+  // Phase 2b — assessment / deployment
   { table: 'permission_overrides', name: 'can_schedule_assessment',      ddl: 'TINYINT(1) NOT NULL DEFAULT 0' },
   { table: 'permission_overrides', name: 'can_record_assessment',        ddl: 'TINYINT(1) NOT NULL DEFAULT 0' },
-  { table: 'permission_overrides', name: 'can_manage_background_checks', ddl: 'TINYINT(1) NOT NULL DEFAULT 0' },
   { table: 'applications', name: 'deployment_station', ddl: 'VARCHAR(255) NULL' },
-  { table: 'applications', name: 'deployment_date',    ddl: 'DATE NULL' }
+  { table: 'applications', name: 'deployment_date',    ddl: 'DATE NULL' },
+  // Phase 3a — job creation overhaul (richer candidate-facing content + structured requirements)
+  { table: 'jobs', name: 'job_ref',          ddl: 'VARCHAR(100) NULL' },
+  { table: 'jobs', name: 'reports_to',       ddl: 'VARCHAR(255) NULL' },
+  { table: 'jobs', name: 'vacancies',        ddl: 'INT UNSIGNED NOT NULL DEFAULT 1' },
+  { table: 'jobs', name: 'about_role',       ddl: 'TEXT NULL' },
+  { table: 'jobs', name: 'accountabilities', ddl: 'JSON NULL' },
+  { table: 'jobs', name: 'special_skills',   ddl: 'JSON NULL' },
+  { table: 'criteria', name: 'requirements', ddl: 'JSON NULL' }
 ];
 
 // Existing ENUM columns that need more values added — MODIFY is idempotent
@@ -44,6 +51,11 @@ const ENUM_EXPANSIONS = [
     table: 'applications', column: 'status',
     ddl: "ENUM('Pending','Under Review','Shortlisted','Interview','Assessment Scheduled','Assessment Complete','Shortlisted II','Background Check','Offered','Declined','Withdrawn') NOT NULL DEFAULT 'Pending'",
     containsCheck: 'Assessment Scheduled'
+  },
+  {
+    table: 'jobs', column: 'type',
+    ddl: "ENUM('Full-time','Contract','Fixed Term Contract') NOT NULL DEFAULT 'Full-time'",
+    containsCheck: 'Fixed Term Contract'
   }
 ];
 
@@ -80,22 +92,32 @@ const TABLES = [
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`
   },
   {
-    name: 'background_checks',
-    ddl: `CREATE TABLE IF NOT EXISTS background_checks (
+    name: 'candidate_scores',
+    ddl: `CREATE TABLE IF NOT EXISTS candidate_scores (
       id              INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
       application_id  INT UNSIGNED NOT NULL,
-      referee_index   TINYINT UNSIGNED NOT NULL,
-      referee_name    VARCHAR(255) NULL,
-      referee_email   VARCHAR(255) NULL,
-      referee_phone   VARCHAR(50)  NULL,
-      status          ENUM('pending','contacted','verified','could_not_reach','declined_to_confirm') NOT NULL DEFAULT 'pending',
-      notes           TEXT NULL,
-      contacted_at    DATETIME NULL,
-      contacted_by    INT UNSIGNED NULL,
+      scorer_user_id  INT UNSIGNED NOT NULL,
+      score           DECIMAL(5,2) NOT NULL,
+      comment         TEXT NULL,
       created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
       updated_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-      UNIQUE KEY uniq_app_referee (application_id, referee_index),
-      FOREIGN KEY (application_id) REFERENCES applications(id) ON DELETE CASCADE
+      UNIQUE KEY uniq_app_scorer (application_id, scorer_user_id),
+      FOREIGN KEY (application_id) REFERENCES applications(id) ON DELETE CASCADE,
+      FOREIGN KEY (scorer_user_id) REFERENCES users(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`
+  },
+  {
+    name: 'job_templates',
+    ddl: `CREATE TABLE IF NOT EXISTS job_templates (
+      id             INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+      name           VARCHAR(150) NOT NULL,
+      department_id  INT UNSIGNED NULL,
+      source_job_id  INT UNSIGNED NULL,
+      content        JSON NOT NULL,
+      created_by     INT UNSIGNED NULL,
+      created_at     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (department_id) REFERENCES departments(id) ON DELETE SET NULL,
+      FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`
   }
 ];
@@ -123,8 +145,32 @@ async function fixPermissionOverridesSchema() {
   console.log('[migrate] fixed permission_overrides: admin_id now nullable, added email/role columns with a unique index on email');
 }
 
+// One-time cleanup: the Background Check feature (Phase 2b) was removed in
+// Phase 3d. The table was confirmed empty (0 rows) and no application ever
+// had status = 'Background Check', so this is a lossless drop.
+async function dropBackgroundCheckFeature() {
+  const [tableRows] = await pool.query(
+    `SELECT TABLE_NAME FROM information_schema.TABLES
+     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'background_checks'`
+  );
+  if (tableRows.length > 0) {
+    await pool.query('DROP TABLE background_checks');
+    console.log('[migrate] dropped table background_checks');
+  }
+
+  const [colRows] = await pool.query(
+    `SELECT COLUMN_NAME FROM information_schema.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'permission_overrides' AND COLUMN_NAME = 'can_manage_background_checks'`
+  );
+  if (colRows.length > 0) {
+    await pool.query('ALTER TABLE permission_overrides DROP COLUMN can_manage_background_checks');
+    console.log('[migrate] dropped column permission_overrides.can_manage_background_checks');
+  }
+}
+
 async function migrate() {
   await fixPermissionOverridesSchema();
+  await dropBackgroundCheckFeature();
   for (const t of TABLES) {
     await pool.query(t.ddl);
     console.log(`[migrate] ensured table ${t.name} exists`);

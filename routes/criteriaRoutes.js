@@ -15,9 +15,23 @@ function mapCriteria(row) {
     disqualifyingUniversities: row.disqualifying_universities || [],
     screeningQuestions: row.screening_questions || [],
     assessmentTypes: row.assessment_types || [],
+    requirements: row.requirements || [],
     notes: row.notes
   };
 }
+
+// GET /api/criteria/:jobId/public — intentionally public. Candidates need this
+// to see a job's candidate-facing essential/desirable requirements on the job
+// detail page, and to be asked its qualifier/disqualifier screening questions
+// on the application form. Only the candidate-facing subset is exposed —
+// minCgpa, disqualifyingUniversities, requiredKeywords, notes and any
+// "criteriaOnly" requirement (silent by design) never leave this route.
+router.get('/:jobId/public', asyncHandler(async (req, res) => {
+  const [rows] = await pool.query('SELECT requirements, screening_questions FROM criteria WHERE job_id = ? LIMIT 1', [req.params.jobId]);
+  if (rows.length === 0) return ok(res, { requirements: [], screeningQuestions: [] });
+  const requirements = (rows[0].requirements || []).filter((r) => r.usage !== 'criteriaOnly');
+  return ok(res, { requirements, screeningQuestions: rows[0].screening_questions || [] });
+}));
 
 // GET /api/criteria/:jobId
 router.get('/:jobId', verifyToken, requirePerm('canManageCriteria'), asyncHandler(async (req, res) => {
@@ -33,7 +47,7 @@ router.put('/:jobId', verifyToken, requirePerm('canManageCriteria'), asyncHandle
   const { jobId } = req.params;
   const {
     minCgpa, minExperienceYears, requiredQualLevel,
-    requiredKeywords, disqualifyingUniversities, screeningQuestions, assessmentTypes, notes
+    requiredKeywords, disqualifyingUniversities, screeningQuestions, assessmentTypes, requirements, notes
   } = req.body;
 
   // Verify job exists
@@ -43,8 +57,8 @@ router.put('/:jobId', verifyToken, requirePerm('canManageCriteria'), asyncHandle
   await pool.query(
     `INSERT INTO criteria
        (job_id, min_cgpa, min_experience_years, required_qual_level,
-        required_keywords, disqualifying_universities, screening_questions, assessment_types, notes)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        required_keywords, disqualifying_universities, screening_questions, assessment_types, requirements, notes)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON DUPLICATE KEY UPDATE
        min_cgpa                 = VALUES(min_cgpa),
        min_experience_years     = VALUES(min_experience_years),
@@ -53,6 +67,7 @@ router.put('/:jobId', verifyToken, requirePerm('canManageCriteria'), asyncHandle
        disqualifying_universities = VALUES(disqualifying_universities),
        screening_questions      = VALUES(screening_questions),
        assessment_types         = VALUES(assessment_types),
+       requirements             = VALUES(requirements),
        notes                    = VALUES(notes),
        updated_at               = NOW()`,
     [
@@ -64,6 +79,7 @@ router.put('/:jobId', verifyToken, requirePerm('canManageCriteria'), asyncHandle
       JSON.stringify(disqualifyingUniversities || []),
       JSON.stringify(screeningQuestions || []),
       JSON.stringify(assessmentTypes || []),
+      JSON.stringify(requirements || []),
       notes || null
     ]
   );

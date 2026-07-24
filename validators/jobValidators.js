@@ -3,6 +3,8 @@ const { body } = require('express-validator');
 const QUAL_LEVELS  = ['O-Level','A-Level','Certificate','Diploma','Degree','Masters','PhD'];
 const SALARY_BANDS = ['UG1','UG2','UG3','UG4','UG5','UG6','UG7'];
 
+const EMPLOYMENT_TYPES = ['Full-time', 'Contract', 'Fixed Term Contract'];
+
 const createJobRules = [
   body('title').trim().notEmpty().withMessage('title required').isLength({ max: 255 }),
   body('dept').trim().notEmpty().withMessage('dept required').isLength({ max: 100 }),
@@ -10,7 +12,7 @@ const createJobRules = [
   body('location').trim().notEmpty().withMessage('location required').isLength({ max: 150 }),
   body('salary').trim().notEmpty().withMessage('salary required').isLength({ max: 100 }),
   body('salaryBand').isIn(SALARY_BANDS).withMessage('salaryBand must be one of UG1–UG7'),
-  body('type').isIn(['Full-time','Contract']).withMessage('type must be Full-time or Contract'),
+  body('type').isIn(EMPLOYMENT_TYPES).withMessage(`type must be one of: ${EMPLOYMENT_TYPES.join(', ')}`),
   body('closes').trim().notEmpty().withMessage('closes display string required'),
   body('closesAt').isISO8601().withMessage('closesAt must be a valid date (YYYY-MM-DD)'),
   body('visibility').isIn(['external','internal']).withMessage('visibility must be external or internal'),
@@ -19,7 +21,13 @@ const createJobRules = [
   body('requiredQualification').isIn(QUAL_LEVELS).withMessage(`requiredQualification must be one of: ${QUAL_LEVELS.join(', ')}`),
   body('description').optional({ checkFalsy: true }).isString().isLength({ max: 10000 }),
   body('featured').optional().isBoolean(),
-  body('departmentId').optional({ checkFalsy: true }).isInt().withMessage('departmentId must be an integer')
+  body('departmentId').optional({ checkFalsy: true }).isInt().withMessage('departmentId must be an integer'),
+  body('jobRef').optional({ checkFalsy: true }).isString().isLength({ max: 100 }),
+  body('reportsTo').optional({ checkFalsy: true }).isString().isLength({ max: 255 }),
+  body('vacancies').optional().isInt({ min: 1 }).withMessage('vacancies must be ≥ 1'),
+  body('aboutRole').optional({ checkFalsy: true }).isString().isLength({ max: 10000 }),
+  body('accountabilities').optional().isArray(),
+  body('specialSkills').optional().isArray()
 ];
 
 const updateJobRules = [
@@ -29,7 +37,7 @@ const updateJobRules = [
   body('location').optional().trim().isLength({ min: 1, max: 150 }),
   body('salary').optional().trim().isLength({ min: 1, max: 100 }),
   body('salaryBand').optional().isIn(SALARY_BANDS),
-  body('type').optional().isIn(['Full-time','Contract']),
+  body('type').optional().isIn(EMPLOYMENT_TYPES),
   body('closesAt').optional().isISO8601().withMessage('closesAt must be a valid date'),
   body('visibility').optional().isIn(['external','internal']),
   body('minAge').optional().isInt({ min: 16 }),
@@ -37,7 +45,13 @@ const updateJobRules = [
   body('requiredQualification').optional().isIn(QUAL_LEVELS),
   body('description').optional({ checkFalsy: true }).isString().isLength({ max: 10000 }),
   body('featured').optional().isBoolean(),
-  body('departmentId').optional({ checkFalsy: true }).isInt().withMessage('departmentId must be an integer')
+  body('departmentId').optional({ checkFalsy: true }).isInt().withMessage('departmentId must be an integer'),
+  body('jobRef').optional({ checkFalsy: true }).isString().isLength({ max: 100 }),
+  body('reportsTo').optional({ checkFalsy: true }).isString().isLength({ max: 255 }),
+  body('vacancies').optional().isInt({ min: 1 }).withMessage('vacancies must be ≥ 1'),
+  body('aboutRole').optional({ checkFalsy: true }).isString().isLength({ max: 10000 }),
+  body('accountabilities').optional().isArray(),
+  body('specialSkills').optional().isArray()
 ];
 
 module.exports = { createJobRules, updateJobRules };

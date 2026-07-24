@@ -314,8 +314,10 @@ router.put('/:id/status', verifyToken, requirePerm('canShortlist'), statusUpdate
   return ok(res, mapApp(updated[0]));
 }));
 
-// PUT /api/applications/:id/deployment — station/reporting date once an offer is accepted
-router.put('/:id/deployment', verifyToken, requirePerm('canManageBackgroundChecks'), asyncHandler(async (req, res) => {
+// PUT /api/applications/:id/deployment — station/reporting date once an offer is accepted.
+// Previously gated on canManageBackgroundChecks (unrelated to deployment) —
+// repointed to canShortlist ahead of that permission's removal.
+router.put('/:id/deployment', verifyToken, requirePerm('canShortlist'), asyncHandler(async (req, res) => {
   const { deploymentStation, deploymentDate } = req.body;
   const [existing] = await pool.query('SELECT * FROM applications WHERE id = ?', [req.params.id]);
   if (existing.length === 0) return fail(res, 'Application not found', 404);

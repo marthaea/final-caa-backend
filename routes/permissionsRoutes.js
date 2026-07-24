@@ -25,7 +25,9 @@ function mapOverride(row) {
     canApproveJob:        !!row.can_approve_job,
     canManageDepartments: !!row.can_manage_departments,
     canManageAdmins:      !!row.can_manage_admins,
-    canAssignRights:      !!row.can_assign_rights
+    canAssignRights:      !!row.can_assign_rights,
+    canScheduleAssessment: !!row.can_schedule_assessment,
+    canRecordAssessment:   !!row.can_record_assessment
   };
 }
 
@@ -53,7 +55,8 @@ router.put('/', verifyToken, requirePerm('canGrantPermissions'), asyncHandler(as
     canViewStaff, canExport, canViewAudit,
     canManageSettings, canGrantPermissions,
     canReviewJob, canApproveJob, canManageDepartments,
-    canManageAdmins, canAssignRights
+    canManageAdmins, canAssignRights,
+    canScheduleAssessment, canRecordAssessment
   } = req.body;
 
   await pool.query(
@@ -61,8 +64,9 @@ router.put('/', verifyToken, requirePerm('canGrantPermissions'), asyncHandler(as
        (email, role, can_view_applications, can_shortlist, can_screen_interns,
         can_send_notifications, can_manage_jobs, can_manage_criteria,
         can_view_staff, can_export, can_view_audit, can_manage_settings, can_grant_permissions,
-        can_review_job, can_approve_job, can_manage_departments, can_manage_admins, can_assign_rights)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        can_review_job, can_approve_job, can_manage_departments, can_manage_admins, can_assign_rights,
+        can_schedule_assessment, can_record_assessment)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON DUPLICATE KEY UPDATE
        role                    = VALUES(role),
        can_view_applications   = VALUES(can_view_applications),
@@ -81,6 +85,8 @@ router.put('/', verifyToken, requirePerm('canGrantPermissions'), asyncHandler(as
        can_manage_departments  = VALUES(can_manage_departments),
        can_manage_admins       = VALUES(can_manage_admins),
        can_assign_rights       = VALUES(can_assign_rights),
+       can_schedule_assessment = VALUES(can_schedule_assessment),
+       can_record_assessment   = VALUES(can_record_assessment),
        updated_at              = NOW()`,
     [
       email, role,
@@ -99,7 +105,9 @@ router.put('/', verifyToken, requirePerm('canGrantPermissions'), asyncHandler(as
       canApproveJob        ? 1 : 0,
       canManageDepartments ? 1 : 0,
       canManageAdmins      ? 1 : 0,
-      canAssignRights      ? 1 : 0
+      canAssignRights      ? 1 : 0,
+      canScheduleAssessment ? 1 : 0,
+      canRecordAssessment   ? 1 : 0
     ]
   );
 
