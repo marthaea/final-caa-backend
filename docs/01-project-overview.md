@@ -45,19 +45,25 @@ caa-recruitment-backend/
 │   └── errorHandler.js        # Centralised error handler (no stack leaks in prod)
 │
 ├── routes/
-│   ├── index.js                # Mounts all 12 resource groups
+│   ├── index.js                # Mounts all 18 resource groups
 │   ├── authRoutes.js           # /api/auth/*
-│   ├── jobRoutes.js            # /api/jobs/*
+│   ├── jobRoutes.js            # /api/jobs/*  (incl. submit-for-review/review/approve/publish workflow)
 │   ├── applicationRoutes.js    # /api/applications/*
 │   ├── cvRoutes.js             # /api/cv/*
-│   ├── criteriaRoutes.js       # /api/criteria/*
-│   ├── settingsRoutes.js       # /api/settings
+│   ├── criteriaRoutes.js       # /api/criteria/*  (incl. public GET /:jobId/public, no auth)
+│   ├── settingsRoutes.js       # /api/settings  (GET is public — needed on every anonymous page load)
 │   ├── permissionsRoutes.js    # /api/permissions/*
 │   ├── notificationsRoutes.js  # /api/notifications/*
 │   ├── emailRoutes.js          # /api/emails/*
 │   ├── auditRoutes.js          # /api/audit
 │   ├── analyticsRoutes.js      # /api/analytics/*
-│   └── staffRoutes.js          # /api/staff/*
+│   ├── staffRoutes.js          # /api/staff/*
+│   ├── departmentRoutes.js     # /api/departments/*
+│   ├── jobTemplateRoutes.js    # /api/job-templates/*
+│   ├── candidateScoreRoutes.js # /api/candidate-scores/*  (multi-admin panel scoring)
+│   ├── userRoutes.js           # /api/users/*
+│   ├── assessmentRoutes.js     # /api/assessments/*
+│   └── chatbotRoutes.js        # /api/chatbot/*  (Martha query logging)
 │
 ├── validators/
 │   ├── authValidators.js
@@ -121,9 +127,11 @@ Every response follows this contract:
 Three account types:
 - `external` — job applicants (public candidates)
 - `internal` — CAA staff (see internal-only jobs)
-- `admin` — has an `adminRole` of `super`, `hr`, or `recruiter`
+- `admin` — has an `adminRole`
 
-Admin permissions are controlled by the `permission_overrides` table (per-admin) falling back to `ROLE_DEFAULTS` in `config/constants.js`.
+Admin roles: the original `super`, `hr`, `recruiter`, plus CAA's hierarchical roles layered on top — `auditor`, `hr_officer`, `it_admin`, `dhra` (Director HR & Administration — approves jobs), and `hod` (Head of Department — reviews jobs before DHRA sees them). A job moves `draft → pending_review → pending_approval → published` (or `declined` at either step) as it passes through HOD review and DHRA approval.
+
+Admin permissions are controlled by the `permission_overrides` table (per-admin) falling back to `ROLE_DEFAULTS` in `config/constants.js`. Every role gets every permission key explicitly (no implicit `false`) so a newly-added key can't silently default to falsy for a role that predates it — see `PERM_KEYS`/`BLANK_PERMS` in that file.
 
 ## Quick Start
 

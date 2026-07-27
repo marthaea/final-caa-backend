@@ -82,8 +82,12 @@ No request body needed — reads the `caa_refresh` httpOnly cookie automatically
 |--------|------|------|-------------|
 | GET | `/jobs` | 🔓 | List open jobs (filtered by visibility) |
 | GET | `/jobs/:id` | 🔓 | Get single job |
-| POST | `/jobs` | 👑 canManageJobs | Create job |
+| POST | `/jobs` | 👑 canManageJobs | Create job (starts as `draft` or `published`, depending on `status`) |
 | PUT | `/jobs/:id` | 👑 canManageJobs | Update job |
+| PUT | `/jobs/:id/submit-for-review` | 👑 canManageJobs | `draft` → `pending_review`; emails the department's HOD |
+| PUT | `/jobs/:id/review` | 👑 canReviewJob | HOD approves (→ `pending_approval`, emails every DHRA) or declines (→ `declined`, emails the creator with `declineReason`) |
+| PUT | `/jobs/:id/approve` | 👑 canApproveJob | DHRA approves (→ `published`) or declines (→ `declined`, emails the creator) |
+| PUT | `/jobs/:id/publish` | 👑 super only | Force-publish, bypassing the review/approval chain |
 | DELETE | `/jobs/:id` | 👑 canManageJobs | Delete job |
 
 ### POST /jobs (create)
@@ -92,7 +96,8 @@ No request body needed — reads the `caa_refresh` httpOnly cookie automatically
   "title": "Aviation Safety Inspector",
   "dept": "Safety Oversight",
   "deptKey": "safety",
-  "location": "Entebbe, Uganda",
+  "departmentId": 3,
+  "location": "Entebbe International Airport",
   "salary": "UGX 3,500,000 – 4,500,000",
   "salaryBand": "UG4",
   "type": "Full-time",
@@ -102,10 +107,20 @@ No request body needed — reads the `caa_refresh` httpOnly cookie automatically
   "minAge": 25,
   "requiredExperience": 3,
   "requiredQualification": "Degree",
-  "description": "Inspect aircraft and facilities...",
-  "featured": true
+  "description": "Internal notes — not shown to candidates",
+  "featured": true,
+
+  "jobRef": "UCAA/ADV/EXT/09/2026",
+  "reportsTo": "Director, Aviation Safety",
+  "vacancies": 2,
+  "aboutRole": "Inspect aircraft and facilities for compliance with ICAO standards...",
+  "accountabilities": [
+    { "area": "Airworthiness Oversight", "activities": ["Conduct scheduled inspections", "Issue compliance reports"] }
+  ],
+  "specialSkills": ["Attention to detail", "Report writing"]
 }
 ```
+`description` is admin-only working notes; `aboutRole` ("Job Purpose"), `accountabilities`, and `specialSkills` are the candidate-facing content rendered on `/job` and in the PDF advert. `salary` (the full range) is never sent to any candidate-facing endpoint or surface — only `salaryBand` ("Salary Scale") is.
 
 ---
 
@@ -201,8 +216,11 @@ Response:
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| GET | `/criteria/:jobId` | 🔑 | Get screening criteria for a job |
+| GET | `/criteria/:jobId/public` | 🔓 | Candidate-safe subset — strips any `requirements` entry with `usage: 'criteriaOnly'` |
+| GET | `/criteria/:jobId` | 👑 canManageCriteria | Full criteria for a job (admin) |
 | PUT | `/criteria/:jobId` | 👑 canManageCriteria | Save criteria for a job |
+
+The public endpoint is what `/apply` and `/job` actually call — there is no other route a candidate can hit to get a job's screening questions or requirements list. Before it existed, candidates never received screening questions at all, since the only route that returned them required an admin permission no candidate account could ever hold.
 
 ### PUT /criteria/:jobId
 ```json
@@ -211,6 +229,7 @@ Response:
   "requiredKeywords": ["aviation", "safety"],
   "notes": "Prefer candidates from CAA-approved training institutions",
   "disqualifyingUniversities": ["XYZ Diploma Mill"],
+  "assessmentTypes": ["written", "interview"],
   "screeningQuestions": [
     {
       "id": "q1",
@@ -225,9 +244,28 @@ Response:
       "min": 2,
       "max": 30
     }
+  ],
+  "requirements": [
+    {
+      "id": "r1",
+      "kind": "minAge",
+      "label": "Must be at least 23 years old",
+      "numberValue": 23,
+      "usage": "disqualifier",
+      "mandatory": true
+    },
+    {
+      "id": "r2",
+      "kind": "specificDegree",
+      "label": "Bachelor's degree in a relevant field is an advantage",
+      "textValue": "BSc Aeronautical Engineering",
+      "usage": "criteriaOnly",
+      "mandatory": false
+    }
   ]
 }
 ```
+`requirements` is the structured qualifier/disqualifier builder from the job-creation form — `kind` is one of `minAge`/`maxAge`/`flyingHours`/`experienceYears`/`sex`/`qualificationLevel`/`specificDegree`/`oLevelSubject`/`aLevelSubject`/`custom`; `usage` controls whether it becomes a candidate-facing qualifier question, a disqualifier question, or stays silent/backend-only (`criteriaOnly`); `mandatory` distinguishes essential from desirable. It's additive to `requiredKeywords`/`disqualifyingUniversities`/manual `screeningQuestions`, not a replacement.
 
 ---
 
@@ -263,8 +301,75 @@ Response:
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| GET | `/permissions/:adminId` | 👑 canGrantPermissions | Get permission overrides for an admin |
-| PUT | `/permissions/:adminId` | 👑 canGrantPermissions | Set permission overrides |
+| GET | `/permissions/roles/defaults` | 🔑 | `ROLE_DEFAULTS` for every admin role — the frontend fetches this rather than hardcoding its own copy |
+| GET | `/permissions` | 👑 canGrantPermissions | List every admin's permission overrides |
+| PUT | `/permissions` | 👑 canGrantPermissions | Upsert one admin's permission overrides (by `email`) |
+
+The full permission key set: `canViewApplications`, `canShortlist`, `canScreenInterns`, `canSendNotifications`, `canManageJobs`, `canManageCriteria`, `canViewStaff`, `canExport`, `canViewAudit`, `canManageSettings`, `canGrantPermissions`, `canReviewJob`, `canApproveJob`, `canManageDepartments`, `canManageAdmins`, `canAssignRights`, `canScheduleAssessment`, `canRecordAssessment`.
+
+---
+
+## Job Templates — `/api/job-templates`
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/job-templates` | 👑 canManageJobs | List templates |
+| POST | `/job-templates` | 👑 canManageJobs | Save the current job-creation draft as a new template |
+| DELETE | `/job-templates/:id` | 👑 canManageJobs | Delete a template |
+
+### POST /job-templates
+```json
+{
+  "name": "Technical / Engineering role",
+  "departmentId": 4,
+  "content": {
+    "aboutRole": "...", "accountabilities": [...], "requirements": [...],
+    "specialSkills": [...], "requiredQualification": "Degree"
+  }
+}
+```
+`content` is a free-form snapshot of whichever job-creation fields matter for reuse — the "start from a template" step loads it back into the draft for HR to edit/extend, it doesn't create a job directly. Seeded with 3 starter templates via `scripts/seed-job-templates.js` (technical/engineering, professional/administrative, graduate-entry/intern).
+
+---
+
+## Candidate Scores — `/api/candidate-scores`
+
+Multi-admin panel scoring for the `Shortlisted II` stage.
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/candidate-scores?jobId=&status=` | 👑 canShortlist | Per-application summary: every scorer's row + a computed average |
+| PUT | `/candidate-scores/:applicationId` | 👑 canShortlist | Upsert the calling admin's own score+comment for that application |
+
+### PUT /candidate-scores/:applicationId
+```json
+{ "score": 88, "comment": "Strong ATC licence, weak on radar procedures" }
+```
+Each admin can only ever write their own row (`UNIQUE(application_id, scorer_user_id)`) — unlike `assessments` (below), simultaneous reviewers never overwrite each other. Every panelist's score+comment is visible to every other panelist, never to the candidate. "Auto-shortlist by score" (frontend-side, `PUT /applications/bulk-status`) advances candidates averaging at or above an HR-chosen threshold to `Interview` and declines the rest.
+
+---
+
+## Departments — `/api/departments`
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/departments` | 🔑 | List departments |
+| POST | `/departments` | 👑 canManageDepartments | Create a department |
+| PUT | `/departments/:id` | 👑 canManageDepartments | Update a department (incl. `headUserId`) |
+
+A job's `department_id` determines who its HOD-review step routes to — whichever user is `head_user_id` on that department.
+
+---
+
+## Assessments — `/api/assessments`
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/assessments?...` | 👑 canExport | List/query assessment records |
+| GET | `/assessments/:applicationId` | 👑 canViewApplications | Get all assessment-type rows for one application |
+| PUT | `/assessments/:applicationId/:type` | 🔑 | Schedule (`scheduledAt`, `venue`) or record (`score`, `passed`, `notes`) a result for one type |
+
+`type` is one of `written`/`psychometric`/`interview`/`practical`. `UNIQUE(application_id, type)` means only one row per type per candidate — last write wins. That's fine for a single official result, but it's why panel scoring at `Shortlisted II` uses the separate `candidate_scores` table instead: this one can't hold more than one reviewer's input.
 
 ---
 
