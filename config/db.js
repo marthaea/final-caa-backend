@@ -17,7 +17,13 @@ const pool = mysql.createPool({
   enableKeepAlive: true,
   keepAliveInitialDelay: 10000,
   idleTimeout: 55000,
-  maxIdle: 4
+  // Keep every pooled connection warm rather than only 4 — a fresh connection
+  // to the remote proxy occasionally takes >10s to establish (ETIMEDOUT 500s
+  // under load), so reuse beats reconnecting wherever possible.
+  maxIdle: 10,
+  // And when a new connection IS needed, give a slow network a fighting
+  // chance instead of failing at the 10s default.
+  connectTimeout: 25000
 });
 
 module.exports = pool;

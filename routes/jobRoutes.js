@@ -74,21 +74,24 @@ router.get('/', optionalToken, asyncHandler(async (req, res) => {
   const isAdmin = req.user && req.user.accountType === 'admin';
   const effectiveType = req.user ? (req.user.effectiveType || req.user.accountType) : 'external';
 
-  const conditions = ['closes_at >= CURDATE()'];
+  const conditions = [];
   const params = [];
 
-  // Candidates only ever see published jobs; admins see every stage of the
-  // approval pipeline so the workflow tabs (Review/Approve) have data to show.
+  // Candidates only ever see published, still-open jobs; admins see every job
+  // at every stage of the approval pipeline — including ones whose deadline
+  // has passed — so the workflow tabs (Review/Approve) always have data.
   if (!isAdmin) {
     conditions.push("status = 'published'");
+    conditions.push('closes_at >= CURDATE()');
   }
 
   if (!settings.allow_external_internal_jobs && effectiveType !== 'internal' && effectiveType !== 'admin') {
     conditions.push("visibility = 'external'");
   }
 
+  const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
   const [rows] = await pool.query(
-    `SELECT * FROM jobs WHERE ${conditions.join(' AND ')} ORDER BY featured DESC, created_at DESC`,
+    `SELECT * FROM jobs ${where} ORDER BY featured DESC, created_at DESC`,
     params
   );
   return okList(res, rows.map(mapJob));
