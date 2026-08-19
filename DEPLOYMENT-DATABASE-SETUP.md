@@ -1,9 +1,20 @@
 # Database Setup & Migration Guide for CAA Recruitment Backend
 
-**Date:** July 30, 2026  
+**Date:** July 30, 2026 (updated 2026-08-19)
 **Status:** Production Database Migration Guide  
 **Previous Host:** Railway  
 **New Host:** [Your New Server]
+
+> **Quick path (recommended):** A real production dump was already extracted
+> from Railway before it expired (`recruitment_portal_backup.sql`, taken
+> 2026-08-13). See **[`database/DATABASE-HANDOVER.md`](database/DATABASE-HANDOVER.md)**
+> for exactly what to hand the person provisioning the new server, and exactly
+> what 5 values to get back from them to reconnect the backend. That file
+> supersedes the generic "run migrate.js + seed scripts" flow below when you
+> have the dump — it restores schema AND all existing data in one import,
+> instead of building an empty database from scratch. Use the rest of this
+> document (`scripts/migrate.js` + seed scripts) only if starting fresh
+> without the dump.
 
 ---
 
