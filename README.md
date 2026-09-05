@@ -28,6 +28,80 @@ matching the MySQL schema you created in phpMyAdmin.
    ```
    Should return `{ "status": "ok", "db_result": 2 }`.
 
+## Deploying to a server
+
+These steps take a fresh Linux (or similar) server from nothing to a running
+API. For full database provisioning/migration detail (schema creation,
+restoring a real data dump, seeding), see
+**[`DEPLOYMENT-DATABASE-SETUP.md`](DEPLOYMENT-DATABASE-SETUP.md)** — this
+section just covers getting the Node app itself running.
+
+1. **Prerequisites on the server**
+   - Node.js 20+ and npm 10+
+   - MySQL 8.0+ or MariaDB 10.5+ (can be on the same server or remote)
+   - Git
+
+2. **Get the code**
+   ```bash
+   git clone <this-repo-url>
+   cd caa-recruitment-backend
+   npm install --omit=dev
+   ```
+
+3. **Create the database and schema** — follow
+   [`DEPLOYMENT-DATABASE-SETUP.md`](DEPLOYMENT-DATABASE-SETUP.md) to create
+   the database/user and run `node scripts/migrate.js` (or restore an
+   existing dump). Do this before starting the app — `index.js` fails fast
+   on missing required env vars but does not create the schema for you.
+
+4. **Configure environment** — copy `.env.example` to `.env` and fill in
+   real values:
+   ```bash
+   cp .env.example .env
+   ```
+   At minimum set: `DB_HOST`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`, `DB_PORT`,
+   a unique `JWT_SECRET` and `JWT_REFRESH_SECRET` (generate with
+   `node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"`),
+   `PORT`, `NODE_ENV=production`, and `FRONTEND_URL` (for CORS). Cloudinary
+   and SMTP values are only required if you need file uploads / email
+   sending respectively. **Never commit `.env`** — it's gitignored.
+
+5. **Seed initial data (optional, first deploy only)**
+   ```bash
+   node scripts/seed-departments.js
+   node scripts/seed-admins.js
+   node scripts/seed-staff.js
+   node scripts/seed-job-templates.js
+   ```
+
+6. **Start the process under a supervisor** — don't run `npm start` directly
+   in production, since a crash won't restart it. Either:
+   - **PM2**
+     ```bash
+     npm install -g pm2
+     pm2 start index.js --name caa-recruitment-backend
+     pm2 save
+     pm2 startup   # follow the printed instructions to run pm2 on boot
+     ```
+   - **systemd** — create `/etc/systemd/system/caa-recruitment-backend.service`
+     running `node /path/to/caa-recruitment-backend/index.js` with
+     `Restart=on-failure`, `EnvironmentFile=/path/to/.env`, then
+     `systemctl enable --now caa-recruitment-backend`.
+
+7. **Put a reverse proxy in front** (Nginx, Caddy, etc.) to terminate
+   TLS/HTTPS and forward to `http://127.0.0.1:$PORT`. Don't expose the raw
+   Node port publicly, and make sure the MySQL port (3306) is **not**
+   exposed to the internet either.
+
+8. **Verify the deployment**
+   ```bash
+   curl http://localhost:5000/api/v1/health
+   ```
+   Should return `{ "status": "ok", "db_result": 2 }`. Then confirm the
+   reverse-proxied public URL returns the same, and that `FRONTEND_URL`
+   matches wherever the frontend is actually hosted (CORS will reject it
+   otherwise).
+
 ## Project structure
 
 ```
