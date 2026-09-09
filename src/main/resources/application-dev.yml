@@ -1,0 +1,21 @@
+spring:
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/caa_recruitment}
+    username: ${DB_USERNAME:caa}
+    password: ${DB_PASSWORD:caa}
+  jpa:
+    show-sql: ${JPA_SHOW_SQL:false}
+
+app:
+  security:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:8081,http://localhost:3000}
+    access-token-secret: ${JWT_SECRET:dev-only-access-token-secret-at-least-32-bytes}
+    refresh-token-secret: ${JWT_REFRESH_SECRET:dev-only-refresh-token-secret-at-least-32-bytes}
+    secure-cookie: ${AUTH_COOKIE_SECURE:false}
+    same-site: ${AUTH_COOKIE_SAME_SITE:Lax}
+  integrations:
+    frontend-url: ${FRONTEND_URL:http://localhost:8081}
+
+logging:
+  pattern:
+    console: "%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX} %-5level [%X{requestId:-startup}] %logger{36} - %msg%n"

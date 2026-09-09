@@ -1,7 +1,18 @@
-node_modules/
+# Java
+target/
+.idea/
+*.iml
+.classpath
+.project
+.settings/
+
+# Env / local
 .env
-npm-debug.log*
 *.log
 .DS_Store
-dist/
+
+# Legacy leftover
+node_modules/
 uploads/
+dist/
+npm-debug.log*

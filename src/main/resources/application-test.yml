@@ -1,0 +1,18 @@
+spring:
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/caa_recruitment_test}
+    username: ${DB_USERNAME:caa}
+    password: ${DB_PASSWORD:caa}
+  jpa:
+    show-sql: false
+
+app:
+  security:
+    access-token-secret: test-only-access-token-secret-at-least-32-bytes
+    refresh-token-secret: test-only-refresh-token-secret-at-least-32-bytes
+    secure-cookie: false
+    same-site: Lax
+
+logging:
+  level:
+    org.testcontainers: INFO
