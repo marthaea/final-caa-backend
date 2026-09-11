@@ -1,0 +1,1363 @@
+openapi: 3.0.3
+info:
+  title: CAA Recruitment Backend Baseline
+  version: 1.0.0-phase1
+  description: Authoritative migration contract for the 66 Express /api handlers and /ping. JSON success responses use `{success:true,data}` (lists also include `total`); JSON failures use `{success:false,error}` and validation failures may include `errors`.
+servers:
+  - url: /
+security:
+  - bearerAuth: []
+tags:
+  - {name: System}
+  - {name: Auth}
+  - {name: Jobs}
+  - {name: Applications}
+  - {name: CV}
+  - {name: Criteria}
+  - {name: Settings}
+  - {name: Permissions}
+  - {name: Notifications}
+  - {name: Audit}
+  - {name: Emails}
+  - {name: Analytics}
+  - {name: Staff}
+  - {name: Departments}
+  - {name: Job templates}
+  - {name: Candidate scores}
+  - {name: Users}
+  - {name: Assessments}
+  - {name: Chatbot}
+
+paths:
+  /ping:
+    get:
+      tags: [System]
+      operationId: ping
+      security: []
+      responses:
+        '200':
+          description: Liveness timestamp
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Ping'}
+
+  /api/auth/register:
+    post:
+      tags: [Auth]
+      operationId: register
+      security: []
+      requestBody: {$ref: '#/components/requestBodies/Register'}
+      responses:
+        '201': {$ref: '#/components/responses/Created'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '409': {$ref: '#/components/responses/Conflict'}
+      description: Creates a candidate and sets `caa_refresh` for seven days (HttpOnly; Secure and SameSite=None except local development, where Secure is false and SameSite=Lax).
+  /api/auth/login:
+    post:
+      tags: [Auth]
+      operationId: login
+      security: []
+      requestBody: {$ref: '#/components/requestBodies/Login'}
+      responses:
+        '200': {$ref: '#/components/responses/AuthSuccess'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+      description: Sets and rotates the seven-day `caa_refresh` cookie with the attributes documented on register.
+  /api/auth/refresh-token:
+    post:
+      tags: [Auth]
+      operationId: refreshToken
+      security: []
+      parameters:
+        - {$ref: '#/components/parameters/RefreshCookie'}
+      responses:
+        '200': {$ref: '#/components/responses/TokenSuccess'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+      description: Reads and rotates `caa_refresh`; invalid/stale/deactivated sessions clear it using matching HttpOnly/Secure/SameSite attributes.
+  /api/auth/me:
+    get:
+      tags: [Auth]
+      operationId: getCurrentUser
+      responses:
+        '200': {$ref: '#/components/responses/UserSuccess'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+  /api/auth/profile:
+    put:
+      tags: [Auth]
+      operationId: updateProfile
+      requestBody: {$ref: '#/components/requestBodies/Profile'}
+      responses:
+        '200': {$ref: '#/components/responses/UserSuccess'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '409': {$ref: '#/components/responses/Conflict'}
+  /api/auth/verify-email:
+    get:
+      tags: [Auth]
+      operationId: verifyEmail
+      security: []
+      parameters:
+        - {in: query, name: token, required: true, schema: {type: string, pattern: '^[0-9a-fA-F]{64}$'}}
+      responses:
+        '200': {$ref: '#/components/responses/Ok'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '404': {$ref: '#/components/responses/NotFound'}
+  /api/auth/resend-verification:
+    post:
+      tags: [Auth]
+      operationId: resendVerification
+      responses:
+        '200': {$ref: '#/components/responses/Ok'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '404': {$ref: '#/components/responses/NotFound'}
+  /api/auth/forgot-password:
+    post:
+      tags: [Auth]
+      operationId: forgotPassword
+      security: []
+      requestBody: {$ref: '#/components/requestBodies/EmailOnly'}
+      responses:
+        '200': {$ref: '#/components/responses/Ok'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+      description: Always gives the same success message for known, unknown, and inactive accounts.
+  /api/auth/reset-password:
+    post:
+      tags: [Auth]
+      operationId: resetPassword
+      security: []
+      requestBody: {$ref: '#/components/requestBodies/ResetPassword'}
+      responses:
+        '200': {$ref: '#/components/responses/Ok'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+  /api/auth/logout:
+    post:
+      tags: [Auth]
+      operationId: logout
+      responses:
+        '200': {$ref: '#/components/responses/Ok'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+      description: Invalidates refresh tokens and clears `caa_refresh`.
+
+  /api/jobs:
+    get:
+      tags: [Jobs]
+      operationId: listJobs
+      security: [{}, {bearerAuth: []}]
+      responses:
+        '200': {$ref: '#/components/responses/JobList'}
+    post:
+      tags: [Jobs]
+      operationId: createJob
+      x-required-permission: canManageJobs
+      requestBody: {$ref: '#/components/requestBodies/JobCreate'}
+      responses:
+        '201': {$ref: '#/components/responses/JobSuccess'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+  /api/jobs/{id}:
+    parameters:
+      - {$ref: '#/components/parameters/Id'}
+    get:
+      tags: [Jobs]
+      operationId: getJob
+      security: [{}, {bearerAuth: []}]
+      responses:
+        '200': {$ref: '#/components/responses/JobSuccess'}
+        '404': {$ref: '#/components/responses/NotFound'}
+    put:
+      tags: [Jobs]
+      operationId: updateJob
+      x-required-permission: canManageJobs
+      requestBody: {$ref: '#/components/requestBodies/JobUpdate'}
+      responses:
+        '200': {$ref: '#/components/responses/JobSuccess'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+    delete:
+      tags: [Jobs]
+      operationId: deleteJob
+      x-required-permission: canManageJobs
+      responses:
+        '200': {$ref: '#/components/responses/Ok'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+  /api/jobs/{id}/submit-for-review:
+    put:
+      tags: [Jobs]
+      operationId: submitJobForReview
+      x-required-permission: canManageJobs
+      parameters: [{$ref: '#/components/parameters/Id'}]
+      responses:
+        '200': {$ref: '#/components/responses/JobSuccess'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+  /api/jobs/{id}/review:
+    put:
+      tags: [Jobs]
+      operationId: reviewJob
+      x-required-permission: canReviewJob
+      parameters: [{$ref: '#/components/parameters/Id'}]
+      requestBody: {$ref: '#/components/requestBodies/Decision'}
+      responses:
+        '200': {$ref: '#/components/responses/JobSuccess'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/Conflict'}
+  /api/jobs/{id}/approve:
+    put:
+      tags: [Jobs]
+      operationId: approveJob
+      x-required-permission: canApproveJob
+      parameters: [{$ref: '#/components/parameters/Id'}]
+      requestBody: {$ref: '#/components/requestBodies/Decision'}
+      responses:
+        '200': {$ref: '#/components/responses/JobSuccess'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+  /api/jobs/{id}/publish:
+    put:
+      tags: [Jobs]
+      operationId: publishJob
+      x-required-roles: [super]
+      parameters: [{$ref: '#/components/parameters/Id'}]
+      responses:
+        '200': {$ref: '#/components/responses/JobSuccess'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+
+  /api/applications:
+    get:
+      tags: [Applications]
+      operationId: listApplications
+      parameters:
+        - {in: query, name: jobId, schema: {type: integer}}
+        - {in: query, name: status, schema: {$ref: '#/components/schemas/ApplicationStatus'}}
+        - {in: query, name: fromDate, schema: {type: string, format: date}}
+        - {in: query, name: toDate, schema: {type: string, format: date}}
+        - {in: query, name: email, schema: {type: string}}
+        - {in: query, name: limit, schema: {type: integer, default: 500}}
+        - {in: query, name: offset, schema: {type: integer, default: 0}}
+      responses:
+        '200': {$ref: '#/components/responses/ApplicationList'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+    post:
+      tags: [Applications]
+      operationId: submitApplication
+      requestBody: {$ref: '#/components/requestBodies/ApplicationSubmit'}
+      responses:
+        '201': {$ref: '#/components/responses/ApplicationSuccess'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/Conflict'}
+  /api/applications/export:
+    get:
+      tags: [Applications]
+      operationId: exportApplications
+      x-required-permission: canViewApplications
+      parameters:
+        - {in: query, name: jobId, schema: {type: integer}}
+        - {in: query, name: status, schema: {$ref: '#/components/schemas/ApplicationStatus'}}
+        - {in: query, name: fromDate, schema: {type: string, format: date}}
+        - {in: query, name: toDate, schema: {type: string, format: date}}
+        - {in: query, name: email, schema: {type: string}}
+      responses:
+        '200':
+          description: CSV attachment named `applications_<epoch-ms>.csv`, CRLF-delimited, up to 5000 rows.
+          headers:
+            Content-Disposition: {schema: {type: string}, example: 'attachment; filename="applications_1788962400000.csv"'}
+          content:
+            text/csv:
+              schema: {type: string}
+              example: "ID,Name,Email,Abbr,Job Title,Department,Date,Status,Completion%,CGPA,University\r\n"
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+  /api/applications/bulk-status:
+    put:
+      tags: [Applications]
+      operationId: bulkUpdateApplicationStatus
+      x-required-permission: canShortlist
+      requestBody: {$ref: '#/components/requestBodies/BulkStatus'}
+      responses:
+        '200': {$ref: '#/components/responses/Ok'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+  /api/applications/{id}/status:
+    put:
+      tags: [Applications]
+      operationId: updateApplicationStatus
+      x-required-permission: canShortlist
+      parameters: [{$ref: '#/components/parameters/Id'}]
+      requestBody: {$ref: '#/components/requestBodies/StatusUpdate'}
+      responses:
+        '200': {$ref: '#/components/responses/ApplicationSuccess'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+  /api/applications/{id}/deployment:
+    put:
+      tags: [Applications]
+      operationId: updateDeployment
+      x-required-permission: canShortlist
+      parameters: [{$ref: '#/components/parameters/Id'}]
+      requestBody: {$ref: '#/components/requestBodies/Deployment'}
+      responses:
+        '200': {$ref: '#/components/responses/ApplicationSuccess'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+  /api/applications/{id}:
+    delete:
+      tags: [Applications]
+      operationId: withdrawApplication
+      parameters: [{$ref: '#/components/parameters/Id'}]
+      responses:
+        '200': {$ref: '#/components/responses/Ok'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '404': {$ref: '#/components/responses/NotFound'}
+
+  /api/cv:
+    get:
+      tags: [CV]
+      operationId: getOwnCv
+      responses:
+        '200': {$ref: '#/components/responses/CvSuccess'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '404': {$ref: '#/components/responses/NotFound'}
+    put:
+      tags: [CV]
+      operationId: upsertOwnCv
+      requestBody: {$ref: '#/components/requestBodies/Cv'}
+      responses:
+        '200': {$ref: '#/components/responses/CvSuccess'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+  /api/cv/upload:
+    post:
+      tags: [CV]
+      operationId: uploadCvFile
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file: {type: string, format: binary}
+                type: {type: string, description: Value `photo` forces image treatment; image MIME types do so automatically.}
+      responses:
+        '201': {$ref: '#/components/responses/Created'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '503': {$ref: '#/components/responses/ServiceUnavailable'}
+  /api/cv/by-email/{email}:
+    get:
+      tags: [CV]
+      operationId: getCvByEmail
+      x-required-permission: canViewApplications
+      parameters:
+        - {in: path, name: email, required: true, schema: {type: string, format: email}}
+      responses:
+        '200': {$ref: '#/components/responses/CvSuccess'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+
+  /api/criteria/{jobId}/public:
+    get:
+      tags: [Criteria]
+      operationId: getPublicCriteria
+      security: []
+      parameters: [{$ref: '#/components/parameters/JobId'}]
+      responses:
+        '200': {$ref: '#/components/responses/CriteriaPublicSuccess'}
+  /api/criteria/{jobId}:
+    parameters: [{$ref: '#/components/parameters/JobId'}]
+    get:
+      tags: [Criteria]
+      operationId: getCriteria
+      x-required-permission: canManageCriteria
+      responses:
+        '200': {$ref: '#/components/responses/CriteriaSuccess'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+    put:
+      tags: [Criteria]
+      operationId: upsertCriteria
+      x-required-permission: canManageCriteria
+      requestBody: {$ref: '#/components/requestBodies/Criteria'}
+      responses:
+        '200': {$ref: '#/components/responses/CriteriaSuccess'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+
+  /api/settings:
+    get:
+      tags: [Settings]
+      operationId: getSettings
+      security: []
+      responses:
+        '200': {$ref: '#/components/responses/SettingsSuccess'}
+    put:
+      tags: [Settings]
+      operationId: updateSettings
+      x-required-roles: [super]
+      requestBody: {$ref: '#/components/requestBodies/Settings'}
+      responses:
+        '200': {$ref: '#/components/responses/SettingsSuccess'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+
+  /api/permissions/roles/defaults:
+    get:
+      tags: [Permissions]
+      operationId: getRoleDefaults
+      responses:
+        '200': {$ref: '#/components/responses/Ok'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+  /api/permissions:
+    get:
+      tags: [Permissions]
+      operationId: listPermissionOverrides
+      x-required-permission: canGrantPermissions
+      responses:
+        '200': {$ref: '#/components/responses/PermissionList'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+    put:
+      tags: [Permissions]
+      operationId: upsertPermissionOverride
+      x-required-permission: canGrantPermissions
+      requestBody: {$ref: '#/components/requestBodies/Permission'}
+      responses:
+        '200': {$ref: '#/components/responses/PermissionSuccess'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+
+  /api/notifications:
+    get:
+      tags: [Notifications]
+      operationId: listNotifications
+      responses:
+        '200': {$ref: '#/components/responses/NotificationList'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+  /api/notifications/{id}/read:
+    put:
+      tags: [Notifications]
+      operationId: markNotificationRead
+      parameters: [{$ref: '#/components/parameters/Id'}]
+      responses:
+        '200': {$ref: '#/components/responses/Ok'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+
+  /api/audit:
+    get:
+      tags: [Audit]
+      operationId: listAudit
+      x-required-permission: canViewAudit
+      parameters:
+        - {in: query, name: search, schema: {type: string}}
+        - {in: query, name: limit, schema: {type: integer, default: 200, maximum: 1000}}
+      responses:
+        '200': {$ref: '#/components/responses/AuditList'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+    post:
+      tags: [Audit]
+      operationId: createAudit
+      x-required-roles: [super, hr, recruiter]
+      requestBody: {$ref: '#/components/requestBodies/Audit'}
+      responses:
+        '201': {$ref: '#/components/responses/Created'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+
+  /api/emails:
+    get:
+      tags: [Emails]
+      operationId: listEmails
+      x-required-permission: canViewApplications
+      parameters:
+        - {in: query, name: search, schema: {type: string}}
+        - {in: query, name: triggerEvent, schema: {type: string}}
+        - {in: query, name: limit, schema: {type: integer, default: 500, maximum: 2000}}
+      responses:
+        '200': {$ref: '#/components/responses/EmailList'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+    post:
+      tags: [Emails]
+      operationId: sendEmail
+      x-required-permission: canSendNotifications
+      requestBody: {$ref: '#/components/requestBodies/Email'}
+      responses:
+        '201': {$ref: '#/components/responses/Created'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+    delete:
+      tags: [Emails]
+      operationId: clearEmailLog
+      x-required-roles: [super]
+      responses:
+        '200': {$ref: '#/components/responses/Ok'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+  /api/emails/bulk:
+    post:
+      tags: [Emails]
+      operationId: sendBulkEmails
+      x-required-permission: canSendNotifications
+      requestBody: {$ref: '#/components/requestBodies/BulkEmail'}
+      responses:
+        '201': {$ref: '#/components/responses/Created'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+
+  /api/analytics/event:
+    post:
+      tags: [Analytics]
+      operationId: recordAnalyticsEvent
+      security: []
+      requestBody: {$ref: '#/components/requestBodies/AnalyticsEvent'}
+      responses:
+        '201':
+          description: Event recorded
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/BareSuccess'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '429': {$ref: '#/components/responses/TooManyRequests'}
+      description: Reads optional `caa_sid` cookie as the analytics session identifier.
+  /api/analytics:
+    get:
+      tags: [Analytics]
+      operationId: getAnalytics
+      x-required-permission: canViewAudit
+      parameters:
+        - {in: query, name: days, schema: {type: integer, default: 30, maximum: 365}}
+      responses:
+        '200': {$ref: '#/components/responses/AnalyticsSuccess'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+
+  /api/staff:
+    get:
+      tags: [Staff]
+      operationId: listStaff
+      x-required-permission: canViewStaff
+      parameters:
+        - {in: query, name: search, schema: {type: string}}
+      responses:
+        '200': {$ref: '#/components/responses/StaffList'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+    post:
+      tags: [Staff]
+      operationId: createStaff
+      x-required-permission: canViewStaff
+      requestBody: {$ref: '#/components/requestBodies/Staff'}
+      responses:
+        '201': {$ref: '#/components/responses/Created'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '409': {$ref: '#/components/responses/Conflict'}
+  /api/staff/verify/{employeeNumber}:
+    get:
+      tags: [Staff]
+      operationId: verifyEmployeeNumber
+      security: []
+      parameters:
+        - {in: path, name: employeeNumber, required: true, schema: {type: string}}
+      responses:
+        '200':
+          description: Existence result (intentionally not wrapped)
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [exists]
+                properties: {exists: {type: boolean}}
+
+  /api/departments:
+    get:
+      tags: [Departments]
+      operationId: listDepartments
+      x-required-any-permission: [canManageJobs, canManageDepartments]
+      responses:
+        '200': {$ref: '#/components/responses/DepartmentList'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+    post:
+      tags: [Departments]
+      operationId: createDepartment
+      x-required-permission: canManageDepartments
+      requestBody: {$ref: '#/components/requestBodies/Department'}
+      responses:
+        '201': {$ref: '#/components/responses/Created'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '409': {$ref: '#/components/responses/Conflict'}
+  /api/departments/{id}:
+    put:
+      tags: [Departments]
+      operationId: assignDepartmentHead
+      x-required-permission: canManageDepartments
+      parameters: [{$ref: '#/components/parameters/Id'}]
+      requestBody: {$ref: '#/components/requestBodies/DepartmentHead'}
+      responses:
+        '200': {$ref: '#/components/responses/DepartmentSuccess'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+
+  /api/job-templates:
+    get:
+      tags: [Job templates]
+      operationId: listJobTemplates
+      x-required-permission: canManageJobs
+      responses:
+        '200': {$ref: '#/components/responses/TemplateList'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+    post:
+      tags: [Job templates]
+      operationId: createJobTemplate
+      x-required-permission: canManageJobs
+      requestBody: {$ref: '#/components/requestBodies/Template'}
+      responses:
+        '201': {$ref: '#/components/responses/Created'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+  /api/job-templates/{id}:
+    delete:
+      tags: [Job templates]
+      operationId: deleteJobTemplate
+      x-required-permission: canManageJobs
+      parameters: [{$ref: '#/components/parameters/Id'}]
+      responses:
+        '200': {$ref: '#/components/responses/Ok'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+
+  /api/candidate-scores:
+    get:
+      tags: [Candidate scores]
+      operationId: listCandidateScores
+      x-required-permission: canShortlist
+      parameters:
+        - {in: query, name: jobId, required: true, schema: {type: integer}}
+        - {in: query, name: status, schema: {$ref: '#/components/schemas/ApplicationStatus'}}
+      responses:
+        '200': {$ref: '#/components/responses/CandidateScoreList'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+  /api/candidate-scores/{applicationId}:
+    put:
+      tags: [Candidate scores]
+      operationId: upsertCandidateScore
+      x-required-permission: canShortlist
+      parameters: [{$ref: '#/components/parameters/ApplicationId'}]
+      requestBody: {$ref: '#/components/requestBodies/Score'}
+      responses:
+        '200': {$ref: '#/components/responses/CandidateScoreSuccess'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+
+  /api/users/admin:
+    get:
+      tags: [Users]
+      operationId: listAdminUsers
+      x-required-any-permission: [canManageAdmins, canAssignRights]
+      responses:
+        '200': {$ref: '#/components/responses/AdminUserList'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+    post:
+      tags: [Users]
+      operationId: createAdminUser
+      x-required-roles: [super]
+      requestBody: {$ref: '#/components/requestBodies/AdminUser'}
+      responses:
+        '201': {$ref: '#/components/responses/Created'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '409': {$ref: '#/components/responses/Conflict'}
+
+  /api/assessments:
+    get:
+      tags: [Assessments]
+      operationId: listAssessments
+      x-required-permission: canExport
+      responses:
+        '200': {$ref: '#/components/responses/AssessmentList'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+  /api/assessments/{applicationId}:
+    get:
+      tags: [Assessments]
+      operationId: getApplicationAssessments
+      x-required-permission: canViewApplications
+      parameters: [{$ref: '#/components/parameters/ApplicationId'}]
+      responses:
+        '200': {$ref: '#/components/responses/AssessmentList'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+  /api/assessments/{applicationId}/{type}:
+    put:
+      tags: [Assessments]
+      operationId: upsertAssessment
+      x-required-any-permission: [canScheduleAssessment, canRecordAssessment]
+      parameters:
+        - {$ref: '#/components/parameters/ApplicationId'}
+        - {in: path, name: type, required: true, schema: {$ref: '#/components/schemas/AssessmentType'}}
+      requestBody: {$ref: '#/components/requestBodies/Assessment'}
+      responses:
+        '200': {$ref: '#/components/responses/AssessmentSuccess'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+
+  /api/chatbot/queries:
+    post:
+      tags: [Chatbot]
+      operationId: recordChatbotQuery
+      security: []
+      requestBody: {$ref: '#/components/requestBodies/ChatbotQuery'}
+      responses:
+        '201': {$ref: '#/components/responses/Created'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+    get:
+      tags: [Chatbot]
+      operationId: listChatbotQueries
+      x-required-permission: canViewAudit
+      parameters:
+        - {in: query, name: outcome, schema: {$ref: '#/components/schemas/ChatbotOutcome'}}
+        - {in: query, name: days, schema: {type: integer, default: 30, maximum: 365}}
+        - {in: query, name: limit, schema: {type: integer, default: 200, maximum: 1000}}
+      responses:
+        '200': {$ref: '#/components/responses/ChatbotList'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    Id: {in: path, name: id, required: true, schema: {type: integer}}
+    JobId: {in: path, name: jobId, required: true, schema: {type: integer}}
+    ApplicationId: {in: path, name: applicationId, required: true, schema: {type: integer}}
+    RefreshCookie:
+      in: cookie
+      name: caa_refresh
+      required: true
+      schema: {type: string}
+
+  requestBodies:
+    Register:
+      required: true
+      content: {application/json: {schema: {$ref: '#/components/schemas/RegisterRequest'}}}
+    Login:
+      required: true
+      content: {application/json: {schema: {$ref: '#/components/schemas/LoginRequest'}}}
+    Profile:
+      required: true
+      content: {application/json: {schema: {$ref: '#/components/schemas/ProfileRequest'}}}
+    EmailOnly:
+      required: true
+      content: {application/json: {schema: {$ref: '#/components/schemas/EmailOnlyRequest'}}}
+    ResetPassword:
+      required: true
+      content: {application/json: {schema: {$ref: '#/components/schemas/ResetPasswordRequest'}}}
+    JobCreate:
+      required: true
+      content: {application/json: {schema: {$ref: '#/components/schemas/JobCreateRequest'}}}
+    JobUpdate:
+      required: true
+      content: {application/json: {schema: {$ref: '#/components/schemas/JobUpdateRequest'}}}
+    Decision:
+      required: true
+      content: {application/json: {schema: {$ref: '#/components/schemas/DecisionRequest'}}}
+    ApplicationSubmit:
+      required: true
+      content: {application/json: {schema: {$ref: '#/components/schemas/ApplicationSubmitRequest'}}}
+    BulkStatus:
+      required: true
+      content: {application/json: {schema: {$ref: '#/components/schemas/BulkStatusRequest'}}}
+    StatusUpdate:
+      required: true
+      content: {application/json: {schema: {$ref: '#/components/schemas/StatusUpdateRequest'}}}
+    Deployment:
+      required: true
+      content: {application/json: {schema: {$ref: '#/components/schemas/DeploymentRequest'}}}
+    Cv:
+      required: true
+      content: {application/json: {schema: {$ref: '#/components/schemas/Cv'}}}
+    Criteria:
+      required: true
+      content: {application/json: {schema: {$ref: '#/components/schemas/Criteria'}}}
+    Settings:
+      required: true
+      content: {application/json: {schema: {$ref: '#/components/schemas/Settings'}}}
+    Permission:
+      required: true
+      content: {application/json: {schema: {$ref: '#/components/schemas/PermissionOverride'}}}
+    Audit:
+      required: true
+      content: {application/json: {schema: {$ref: '#/components/schemas/AuditRequest'}}}
+    Email:
+      required: true
+      content: {application/json: {schema: {$ref: '#/components/schemas/EmailRequest'}}}
+    BulkEmail:
+      required: true
+      content: {application/json: {schema: {$ref: '#/components/schemas/BulkEmailRequest'}}}
+    AnalyticsEvent:
+      required: true
+      content: {application/json: {schema: {$ref: '#/components/schemas/AnalyticsEventRequest'}}}
+    Staff:
+      required: true
+      content: {application/json: {schema: {$ref: '#/components/schemas/StaffRequest'}}}
+    Department:
+      required: true
+      content: {application/json: {schema: {$ref: '#/components/schemas/DepartmentRequest'}}}
+    DepartmentHead:
+      required: true
+      content: {application/json: {schema: {$ref: '#/components/schemas/DepartmentHeadRequest'}}}
+    Template:
+      required: true
+      content: {application/json: {schema: {$ref: '#/components/schemas/TemplateRequest'}}}
+    Score:
+      required: true
+      content: {application/json: {schema: {$ref: '#/components/schemas/ScoreRequest'}}}
+    AdminUser:
+      required: true
+      content: {application/json: {schema: {$ref: '#/components/schemas/AdminUserRequest'}}}
+    Assessment:
+      required: true
+      content: {application/json: {schema: {$ref: '#/components/schemas/AssessmentRequest'}}}
+    ChatbotQuery:
+      required: true
+      content: {application/json: {schema: {$ref: '#/components/schemas/ChatbotQueryRequest'}}}
+
+  responses:
+    Ok:
+      description: Successful standard envelope
+      content: {application/json: {schema: {$ref: '#/components/schemas/SuccessEnvelope'}}}
+    Created:
+      description: Created standard envelope
+      content: {application/json: {schema: {$ref: '#/components/schemas/SuccessEnvelope'}}}
+    AuthSuccess:
+      description: Authenticated user and access token; also sets `caa_refresh`
+      headers:
+        Set-Cookie: {schema: {type: string}, example: 'caa_refresh=<jwt>; Max-Age=604800; Path=/; Expires=<date>; HttpOnly; Secure; SameSite=None'}
+      content: {application/json: {schema: {$ref: '#/components/schemas/AuthEnvelope'}}}
+    TokenSuccess:
+      description: Rotated access and refresh tokens
+      headers:
+        Set-Cookie: {schema: {type: string}, example: 'caa_refresh=<jwt>; Max-Age=604800; Path=/; Expires=<date>; HttpOnly; Secure; SameSite=None'}
+      content: {application/json: {schema: {$ref: '#/components/schemas/TokenEnvelope'}}}
+    UserSuccess: {$ref: '#/components/responses/Ok'}
+    JobSuccess:
+      description: Job envelope
+      content: {application/json: {schema: {$ref: '#/components/schemas/JobEnvelope'}}}
+    JobList:
+      description: Job list envelope
+      content: {application/json: {schema: {$ref: '#/components/schemas/JobListEnvelope'}}}
+    ApplicationSuccess:
+      description: Application envelope
+      content: {application/json: {schema: {$ref: '#/components/schemas/ApplicationEnvelope'}}}
+    ApplicationList:
+      description: Application list envelope
+      content: {application/json: {schema: {$ref: '#/components/schemas/ApplicationListEnvelope'}}}
+    CvSuccess:
+      description: CV envelope; data may be null on the admin-by-email endpoint
+      content: {application/json: {schema: {$ref: '#/components/schemas/CvEnvelope'}}}
+    CriteriaSuccess: {$ref: '#/components/responses/Ok'}
+    CriteriaPublicSuccess: {$ref: '#/components/responses/Ok'}
+    SettingsSuccess:
+      description: Settings envelope
+      content: {application/json: {schema: {$ref: '#/components/schemas/SettingsEnvelope'}}}
+    PermissionSuccess: {$ref: '#/components/responses/Ok'}
+    PermissionList: {$ref: '#/components/responses/List'}
+    NotificationList: {$ref: '#/components/responses/List'}
+    AuditList: {$ref: '#/components/responses/List'}
+    EmailList: {$ref: '#/components/responses/List'}
+    AnalyticsSuccess: {$ref: '#/components/responses/Ok'}
+    StaffList: {$ref: '#/components/responses/List'}
+    DepartmentSuccess: {$ref: '#/components/responses/Ok'}
+    DepartmentList: {$ref: '#/components/responses/List'}
+    TemplateList: {$ref: '#/components/responses/List'}
+    CandidateScoreSuccess: {$ref: '#/components/responses/Ok'}
+    CandidateScoreList: {$ref: '#/components/responses/List'}
+    AdminUserList: {$ref: '#/components/responses/List'}
+    AssessmentSuccess: {$ref: '#/components/responses/Ok'}
+    AssessmentList: {$ref: '#/components/responses/List'}
+    ChatbotList: {$ref: '#/components/responses/List'}
+    List:
+      description: Successful list envelope
+      content: {application/json: {schema: {$ref: '#/components/schemas/ListEnvelope'}}}
+    BadRequest:
+      description: Bad input, invalid state, or validation failure
+      content: {application/json: {schema: {$ref: '#/components/schemas/ErrorEnvelope'}}}
+    Unauthorized:
+      description: Missing, invalid, or expired credentials
+      content: {application/json: {schema: {$ref: '#/components/schemas/ErrorEnvelope'}}}
+    Forbidden:
+      description: Authenticated but role, permission, ownership, or account state forbids access
+      content: {application/json: {schema: {$ref: '#/components/schemas/ErrorEnvelope'}}}
+    NotFound:
+      description: Resource not found
+      content: {application/json: {schema: {$ref: '#/components/schemas/ErrorEnvelope'}}}
+    Conflict:
+      description: Duplicate or conflicting resource
+      content: {application/json: {schema: {$ref: '#/components/schemas/ErrorEnvelope'}}}
+    TooManyRequests:
+      description: Rate limit exceeded
+      content: {application/json: {schema: {$ref: '#/components/schemas/ErrorEnvelope'}}}
+    ServiceUnavailable:
+      description: Required external service is unavailable or unconfigured
+      content: {application/json: {schema: {$ref: '#/components/schemas/ErrorEnvelope'}}}
+
+  schemas:
+    Ping:
+      type: object
+      required: [ok, ts]
+      properties: {ok: {type: boolean, enum: [true]}, ts: {type: integer, format: int64}}
+    BareSuccess:
+      type: object
+      required: [success]
+      properties: {success: {type: boolean, enum: [true]}}
+    SuccessEnvelope:
+      type: object
+      required: [success, data]
+      properties:
+        success: {type: boolean, enum: [true]}
+        data: {}
+    ListEnvelope:
+      type: object
+      required: [success, data, total]
+      properties:
+        success: {type: boolean, enum: [true]}
+        data: {type: array, items: {}}
+        total: {type: integer}
+    ErrorEnvelope:
+      type: object
+      required: [success, error]
+      properties:
+        success: {type: boolean, enum: [false]}
+        error: {type: string}
+        errors:
+          type: array
+          items:
+            type: object
+            properties: {field: {type: string}, message: {type: string}}
+    AccountType: {type: string, enum: [external, internal, admin]}
+    AdminRole: {type: string, enum: [super, hr, recruiter, auditor, hr_officer, it_admin, dhra, hod]}
+    QualificationLevel: {type: string, enum: [O-Level, A-Level, Certificate, Diploma, Degree, Masters, PhD]}
+    SalaryBand: {type: string, enum: [UG1, UG2, UG3, UG4, UG5, UG6, UG7]}
+    EmploymentType: {type: string, enum: [Full-time, Contract, Fixed Term Contract]}
+    JobVisibility: {type: string, enum: [external, internal]}
+    JobStatus: {type: string, enum: [draft, declined, pending_review, pending_approval, published]}
+    ApplicationStatus: {type: string, enum: [Pending, Under Review, Shortlisted, Shortlisted II, Interview, Assessment Scheduled, Assessment Complete, Offered, Declined]}
+    ValidatedApplicationStatus: {type: string, enum: [Pending, Under Review, Shortlisted, Interview, Offered, Declined]}
+    AssessmentType: {type: string, enum: [written, psychometric, interview, practical]}
+    AnalyticsEventType: {type: string, enum: [page_view, job_view, apply_click, save_job, search]}
+    ChatbotOutcome: {type: string, enum: [answered, suggested, fallback]}
+    User:
+      type: object
+      properties:
+        id: {type: integer}
+        email: {type: string, format: email}
+        firstName: {type: string}
+        lastName: {type: string}
+        accountType: {$ref: '#/components/schemas/AccountType'}
+        effectiveType: {$ref: '#/components/schemas/AccountType'}
+        adminRole: {allOf: [{$ref: '#/components/schemas/AdminRole'}], nullable: true}
+        employeeNumber: {type: string, nullable: true}
+        emailVerified: {type: boolean}
+        token: {type: string}
+    AuthEnvelope:
+      type: object
+      required: [success, data]
+      properties: {success: {type: boolean, enum: [true]}, data: {$ref: '#/components/schemas/User'}}
+    TokenEnvelope:
+      type: object
+      required: [success, data]
+      properties:
+        success: {type: boolean, enum: [true]}
+        data:
+          type: object
+          required: [token]
+          properties: {token: {type: string}}
+    Job:
+      type: object
+      properties:
+        id: {type: integer}
+        abbr: {type: string}
+        title: {type: string}
+        dept: {type: string}
+        deptKey: {type: string}
+        location: {type: string}
+        salary: {type: string}
+        salaryBand: {$ref: '#/components/schemas/SalaryBand'}
+        type: {$ref: '#/components/schemas/EmploymentType'}
+        closes: {type: string}
+        closesAt: {type: string, format: date}
+        visibility: {$ref: '#/components/schemas/JobVisibility'}
+        minAge: {type: integer}
+        requiredExperience: {type: integer}
+        requiredQualification: {$ref: '#/components/schemas/QualificationLevel'}
+        description: {type: string, nullable: true}
+        featured: {type: boolean}
+        status: {$ref: '#/components/schemas/JobStatus'}
+        departmentId: {type: integer, nullable: true}
+        declineReason: {type: string, nullable: true}
+        jobRef: {type: string, nullable: true}
+        reportsTo: {type: string, nullable: true}
+        vacancies: {type: integer}
+        aboutRole: {type: string, nullable: true}
+        accountabilities: {type: array, items: {}}
+        specialSkills: {type: array, items: {}}
+    JobEnvelope:
+      type: object
+      required: [success, data]
+      properties: {success: {type: boolean, enum: [true]}, data: {$ref: '#/components/schemas/Job'}}
+    JobListEnvelope:
+      type: object
+      required: [success, data, total]
+      properties:
+        success: {type: boolean, enum: [true]}
+        data: {type: array, items: {$ref: '#/components/schemas/Job'}}
+        total: {type: integer}
+    Application:
+      type: object
+      properties:
+        id: {type: integer}
+        jobId: {type: integer}
+        abbr: {type: string}
+        title: {type: string}
+        dept: {type: string}
+        date: {type: string}
+        status: {$ref: '#/components/schemas/ApplicationStatus'}
+        completion: {type: integer}
+        candidateName: {type: string}
+        candidateEmail: {type: string, format: email}
+        cgpa: {type: number, nullable: true}
+        university: {type: string, nullable: true}
+        screeningAnswers: {type: object, nullable: true, additionalProperties: true}
+        deploymentStation: {type: string, nullable: true}
+        deploymentDate: {type: string, format: date, nullable: true}
+    ApplicationEnvelope:
+      type: object
+      required: [success, data]
+      properties: {success: {type: boolean, enum: [true]}, data: {$ref: '#/components/schemas/Application'}}
+    ApplicationListEnvelope:
+      type: object
+      required: [success, data, total]
+      properties:
+        success: {type: boolean, enum: [true]}
+        data: {type: array, items: {$ref: '#/components/schemas/Application'}}
+        total: {type: integer}
+    Cv:
+      type: object
+      properties:
+        personal: {type: object, additionalProperties: true}
+        highestLevel: {type: string, nullable: true}
+        qualifications: {type: array, items: {type: object, additionalProperties: true}}
+        skills: {type: array, items: {}}
+        experience: {type: array, items: {type: object, additionalProperties: true}}
+        referees: {type: array, items: {type: object, additionalProperties: true}}
+        nextOfKin: {type: object, additionalProperties: true}
+        photoFile: {type: string, nullable: true}
+    CvEnvelope:
+      type: object
+      required: [success, data]
+      properties:
+        success: {type: boolean, enum: [true]}
+        data: {allOf: [{$ref: '#/components/schemas/Cv'}], nullable: true}
+    Criteria:
+      type: object
+      properties:
+        jobId: {type: integer}
+        minCgpa: {type: number, nullable: true}
+        minExperienceYears: {type: integer, nullable: true}
+        requiredQualLevel: {type: string, nullable: true}
+        requiredKeywords: {type: array, items: {type: string}}
+        disqualifyingUniversities: {type: array, items: {type: string}}
+        screeningQuestions: {type: array, items: {type: object, additionalProperties: true}}
+        assessmentTypes: {type: array, items: {$ref: '#/components/schemas/AssessmentType'}}
+        requirements: {type: array, items: {type: object, additionalProperties: true}}
+        notes: {type: string, nullable: true}
+    Settings:
+      type: object
+      properties:
+        orgName: {type: string}
+        emailSenderName: {type: string}
+        minAgeThreshold: {type: integer}
+        allowExternalInternalJobs: {type: boolean}
+        sessionTimeoutMinutes: {type: integer}
+        closingSoonDays: {type: integer}
+        maxApplicationsPerCandidate: {type: integer}
+        notifTemplates:
+          type: object
+          properties: {shortlist: {type: string}, decline: {type: string}, interview: {type: string}, offer: {type: string}}
+    SettingsEnvelope:
+      type: object
+      required: [success, data]
+      properties: {success: {type: boolean, enum: [true]}, data: {$ref: '#/components/schemas/Settings'}}
+    PermissionOverride:
+      type: object
+      required: [email, role]
+      properties:
+        email: {type: string, format: email}
+        role: {$ref: '#/components/schemas/AdminRole'}
+        canViewApplications: {type: boolean}
+        canShortlist: {type: boolean}
+        canScreenInterns: {type: boolean}
+        canSendNotifications: {type: boolean}
+        canManageJobs: {type: boolean}
+        canManageCriteria: {type: boolean}
+        canViewStaff: {type: boolean}
+        canExport: {type: boolean}
+        canViewAudit: {type: boolean}
+        canManageSettings: {type: boolean}
+        canGrantPermissions: {type: boolean}
+        canReviewJob: {type: boolean}
+        canApproveJob: {type: boolean}
+        canManageDepartments: {type: boolean}
+        canManageAdmins: {type: boolean}
+        canAssignRights: {type: boolean}
+        canScheduleAssessment: {type: boolean}
+        canRecordAssessment: {type: boolean}
+    Notification:
+      type: object
+      properties: {id: {type: integer}, recipientEmail: {type: string, format: email}, title: {type: string}, message: {type: string}, read: {type: boolean}, type: {type: string}, at: {type: string, format: date-time}}
+    AuditEntry:
+      type: object
+      properties: {id: {type: integer}, at: {type: string, format: date-time}, actor: {type: string}, role: {type: string}, action: {type: string}, target: {type: string, nullable: true}}
+    SentEmail:
+      type: object
+      properties: {id: {type: integer}, to: {type: string, format: email}, candidateName: {type: string}, subject: {type: string}, body: {type: string}, sentAt: {type: string, format: date-time}, trigger: {type: string}, jobTitle: {type: string}}
+    Staff:
+      type: object
+      properties: {id: {type: integer}, empNo: {type: string}, firstName: {type: string}, lastName: {type: string}, dept: {type: string, nullable: true}, position: {type: string, nullable: true}, email: {type: string, format: email, nullable: true}, joined: {type: string, format: date}, status: {type: string}}
+    Department:
+      type: object
+      properties: {id: {type: integer}, name: {type: string}, code: {type: string}, headUserId: {type: integer, nullable: true}}
+    JobTemplate:
+      type: object
+      properties: {id: {type: integer}, name: {type: string}, departmentId: {type: integer, nullable: true}, sourceJobId: {type: integer, nullable: true}, content: {type: object, additionalProperties: true}, createdAt: {type: string, format: date-time}}
+    CandidateScore:
+      type: object
+      properties: {id: {type: integer}, applicationId: {type: integer}, scorerUserId: {type: integer}, scorerName: {type: string}, scorerEmail: {type: string, format: email}, score: {type: number, nullable: true}, comment: {type: string, nullable: true}, updatedAt: {type: string, format: date-time}}
+    AdminUser:
+      type: object
+      properties: {id: {type: integer}, email: {type: string, format: email}, firstName: {type: string}, lastName: {type: string}, adminRole: {$ref: '#/components/schemas/AdminRole'}, isActive: {type: boolean}}
+    Assessment:
+      type: object
+      properties:
+        id: {type: integer}
+        applicationId: {type: integer}
+        type: {$ref: '#/components/schemas/AssessmentType'}
+        scheduledAt: {type: string, format: date-time, nullable: true}
+        venue: {type: string, nullable: true}
+        score: {type: number, nullable: true}
+        passed: {type: boolean, nullable: true}
+        notes: {type: string, nullable: true}
+        candidateName: {type: string}
+        jobTitle: {type: string}
+        dept: {type: string}
+    ChatbotQuery:
+      type: object
+      properties: {id: {type: integer}, query: {type: string}, matchedQuestion: {type: string, nullable: true}, outcome: {$ref: '#/components/schemas/ChatbotOutcome'}, persona: {type: string}, askedAt: {type: string, format: date-time}}
+    RegisterRequest:
+      type: object
+      required: [email, password, firstName, lastName, accountType]
+      properties:
+        email: {type: string, format: email}
+        password: {type: string, minLength: 8, pattern: '.*[0-9].*'}
+        firstName: {type: string, minLength: 1, maxLength: 100}
+        lastName: {type: string, minLength: 1, maxLength: 100}
+        accountType: {type: string, enum: [external, internal]}
+        employeeNumber: {type: string, description: Required when accountType is internal.}
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties: {email: {type: string, format: email}, password: {type: string}}
+    ProfileRequest:
+      type: object
+      properties: {email: {type: string, format: email}, firstName: {type: string, minLength: 1, maxLength: 100}, lastName: {type: string, minLength: 1, maxLength: 100}}
+    EmailOnlyRequest:
+      type: object
+      required: [email]
+      properties: {email: {type: string, format: email}}
+    ResetPasswordRequest:
+      type: object
+      required: [token, password]
+      properties: {token: {type: string, pattern: '^[0-9a-fA-F]{64}$'}, password: {type: string, minLength: 8, pattern: '.*[0-9].*'}}
+    JobCreateRequest:
+      type: object
+      required: [title, dept, deptKey, location, salary, salaryBand, type, closes, closesAt, visibility, requiredQualification]
+      properties:
+        title: {type: string, maxLength: 255}
+        dept: {type: string, maxLength: 100}
+        deptKey: {type: string, maxLength: 50}
+        location: {type: string, maxLength: 150}
+        salary: {type: string, maxLength: 100}
+        salaryBand: {$ref: '#/components/schemas/SalaryBand'}
+        type: {$ref: '#/components/schemas/EmploymentType'}
+        closes: {type: string}
+        closesAt: {type: string, format: date}
+        visibility: {$ref: '#/components/schemas/JobVisibility'}
+        minAge: {type: integer, minimum: 16, default: 21}
+        requiredExperience: {type: integer, minimum: 0, default: 0}
+        requiredQualification: {$ref: '#/components/schemas/QualificationLevel'}
+        description: {type: string, maxLength: 10000}
+        featured: {type: boolean}
+        departmentId: {type: integer}
+        jobRef: {type: string, maxLength: 100}
+        reportsTo: {type: string, maxLength: 255}
+        vacancies: {type: integer, minimum: 1, default: 1}
+        aboutRole: {type: string, maxLength: 10000}
+        accountabilities: {type: array, items: {}}
+        specialSkills: {type: array, items: {}}
+    JobUpdateRequest:
+      type: object
+      description: Every field is optional; supplied fields have the same constraints as job creation.
+      properties:
+        title: {type: string, minLength: 1, maxLength: 255}
+        dept: {type: string, minLength: 1, maxLength: 100}
+        deptKey: {type: string, minLength: 1, maxLength: 50}
+        location: {type: string, minLength: 1, maxLength: 150}
+        salary: {type: string, minLength: 1, maxLength: 100}
+        salaryBand: {$ref: '#/components/schemas/SalaryBand'}
+        type: {$ref: '#/components/schemas/EmploymentType'}
+        closes: {type: string}
+        closesAt: {type: string, format: date}
+        visibility: {$ref: '#/components/schemas/JobVisibility'}
+        minAge: {type: integer, minimum: 16}
+        requiredExperience: {type: integer, minimum: 0}
+        requiredQualification: {$ref: '#/components/schemas/QualificationLevel'}
+        description: {type: string, maxLength: 10000}
+        featured: {type: boolean}
+        departmentId: {type: integer}
+        jobRef: {type: string, maxLength: 100}
+        reportsTo: {type: string, maxLength: 255}
+        vacancies: {type: integer, minimum: 1}
+        aboutRole: {type: string, maxLength: 10000}
+        accountabilities: {type: array, items: {}}
+        specialSkills: {type: array, items: {}}
+    DecisionRequest:
+      type: object
+      required: [approve]
+      properties: {approve: {type: boolean}, reason: {type: string, description: Required when approve is false.}}
+    ApplicationSubmitRequest:
+      type: object
+      required: [jobId, completion]
+      properties:
+        jobId: {type: integer, minimum: 1}
+        completion: {type: integer, minimum: 0, maximum: 100}
+        cgpa: {type: number, minimum: 0, maximum: 5}
+        university: {type: string, maxLength: 255}
+        screeningAnswers: {type: object, additionalProperties: true}
+    BulkStatusRequest:
+      type: object
+      required: [updates]
+      properties:
+        updates:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            required: [id, status]
+            properties: {id: {type: integer, minimum: 1}, status: {$ref: '#/components/schemas/ValidatedApplicationStatus'}}
+    StatusUpdateRequest:
+      type: object
+      required: [status]
+      properties:
+        status: {$ref: '#/components/schemas/ValidatedApplicationStatus'}
+        notifyEmail: {type: string, format: email}
+        notifyMessage: {type: string, maxLength: 2000}
+    DeploymentRequest:
+      type: object
+      properties: {deploymentStation: {type: string, nullable: true}, deploymentDate: {type: string, format: date, nullable: true}}
+    AuditRequest:
+      type: object
+      required: [action]
+      properties: {action: {type: string}, target: {type: string, nullable: true}}
+    EmailRequest:
+      type: object
+      required: [to, candidateName, subject, body, trigger, jobTitle]
+      properties: {to: {type: string, format: email}, candidateName: {type: string}, subject: {type: string}, body: {type: string}, trigger: {type: string}, jobTitle: {type: string}}
+    BulkEmailRequest:
+      type: object
+      required: [emails]
+      properties: {emails: {type: array, minItems: 1, items: {$ref: '#/components/schemas/EmailRequest'}}}
+    AnalyticsEventRequest:
+      type: object
+      required: [type]
+      properties: {type: {$ref: '#/components/schemas/AnalyticsEventType'}, jobId: {type: integer}, jobTitle: {type: string}, query: {type: string}}
+    StaffRequest:
+      type: object
+      required: [employeeNumber, firstName, lastName]
+      properties: {employeeNumber: {type: string}, firstName: {type: string}, lastName: {type: string}, dept: {type: string}, position: {type: string}, email: {type: string, format: email}, joined: {type: string, format: date}, status: {type: string, default: Active}}
+    DepartmentRequest:
+      type: object
+      required: [name, code]
+      properties: {name: {type: string}, code: {type: string}}
+    DepartmentHeadRequest:
+      type: object
+      properties: {headUserId: {type: integer, nullable: true}}
+    TemplateRequest:
+      type: object
+      required: [name, content]
+      properties: {name: {type: string}, departmentId: {type: integer, nullable: true}, sourceJobId: {type: integer, nullable: true}, content: {type: object, additionalProperties: true}}
+    ScoreRequest:
+      type: object
+      required: [score]
+      properties: {score: {type: number}, comment: {type: string, nullable: true}}
+    AdminUserRequest:
+      type: object
+      required: [email, password, firstName, lastName, adminRole]
+      properties: {email: {type: string, format: email}, password: {type: string, minLength: 8}, firstName: {type: string}, lastName: {type: string}, adminRole: {$ref: '#/components/schemas/AdminRole'}}
+    AssessmentRequest:
+      type: object
+      properties: {scheduledAt: {type: string, format: date-time, nullable: true}, venue: {type: string, nullable: true}, score: {type: number, nullable: true}, passed: {type: boolean, nullable: true}, notes: {type: string, nullable: true}}
+    ChatbotQueryRequest:
+      type: object
+      required: [query, outcome]
+      properties: {query: {type: string, maxLength: 500}, matchedQuestion: {type: string, maxLength: 255}, outcome: {$ref: '#/components/schemas/ChatbotOutcome'}, persona: {type: string, maxLength: 20, default: guest}}
