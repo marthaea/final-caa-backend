@@ -1,0 +1,75 @@
+# Production stack: PostgreSQL + CAA Java API on one Docker network.
+services:
+  postgres:
+    build:
+      context: ./database
+    image: caa-postgres:18
+    container_name: caa-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-caa_recruitment}
+      POSTGRES_USER: ${POSTGRES_USER:-caa}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-caa}
+    volumes:
+      - caa-postgres-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    networks:
+      - caa
+
+  api:
+    build:
+      context: .
+    image: caa-recruitment-api:latest
+    container_name: caa-api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-prod}
+      SERVER_PORT: "8080"
+      DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-caa_recruitment}
+      DB_USERNAME: ${POSTGRES_USER:-caa}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-caa}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-*}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      AUTH_COOKIE_SECURE: ${AUTH_COOKIE_SECURE:-false}
+      AUTH_COOKIE_SAME_SITE: ${AUTH_COOKIE_SAME_SITE:-Lax}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:8081}
+      SMTP_ENABLED: ${SMTP_ENABLED:-false}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-}
+      SMTP_SENDER_NAME: ${SMTP_SENDER_NAME:-CAA HR Team}
+      CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME:-}
+      CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:-}
+      CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET:-}
+      OPENAPI_ENABLED: ${OPENAPI_ENABLED:-true}
+      APP_UPLOAD_DIR: /app/uploads
+    ports:
+      - "${APP_PORT:-8082}:8080"
+    volumes:
+      - caa-uploads:/app/uploads
+    networks:
+      - caa
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/ping >/dev/null 2>&1 || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 90s
+
+volumes:
+  caa-postgres-data:
+  caa-uploads:
+
+networks:
+  caa:
+    name: caa-net
