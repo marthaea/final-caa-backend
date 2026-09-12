@@ -59,6 +59,22 @@ public class AdminUserRepository {
         return findById(id).orElseThrow();
     }
 
+    public void updatePassword(long id, String passwordHash) {
+        jdbc.sql("UPDATE users SET password_hash = :passwordHash, updated_at = now() WHERE id = :id AND account_type = 'admin'")
+                .param("passwordHash", passwordHash)
+                .param("id", id)
+                .update();
+    }
+
+    // A super admin setting someone else's password directly (no email token
+    // involved, unlike self-service forgot/reset) — sign them out everywhere
+    // so the old password can't keep an existing session alive.
+    public void revokeSessions(long id) {
+        jdbc.sql("UPDATE refresh_sessions SET revoked_at = now() WHERE user_id = :id AND revoked_at IS NULL")
+                .param("id", id)
+                .update();
+    }
+
     public Optional<AdminUser> findById(long id) {
         return jdbc.sql("""
                 SELECT id, email, first_name, last_name, admin_role, is_active
@@ -86,6 +102,24 @@ public class AdminUserRepository {
                 .param("actor", actor)
                 .param("actorRole", actorRole)
                 .param("target", firstName + " " + lastName + " (" + email + ", " + adminRole + ")")
+                .update();
+    }
+
+    public void recordPasswordChange(
+            long actorId,
+            String actor,
+            String actorRole,
+            String targetName,
+            String targetEmail
+    ) {
+        jdbc.sql("""
+                INSERT INTO audit_log (actor_user_id, actor, role, action, target)
+                VALUES (:actorId, :actor, :actorRole, 'Reset admin password', :target)
+                """)
+                .param("actorId", actorId)
+                .param("actor", actor)
+                .param("actorRole", actorRole)
+                .param("target", targetName + " (" + targetEmail + ")")
                 .update();
     }
 

@@ -69,6 +69,25 @@ public class AdminUserService {
         return created;
     }
 
+    // Direct reset by a super admin — the practical path when the email-based
+    // forgot/reset-password flow isn't an option (SMTP not yet configured,
+    // or the account holder isn't reachable), e.g. right after handing this
+    // system over to a new super admin who needs to manage other accounts.
+    @Transactional
+    public void changePassword(AuthenticatedActor actor, long targetId, String newPassword) {
+        authorization.requireRole(actor, "super");
+        if (isBlank(newPassword) || newPassword.length() < 8) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Password must be at least 8 characters");
+        }
+        AdminUser target = repository.findById(targetId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Admin account not found"));
+        repository.updatePassword(targetId, passwordEncoder.encode(newPassword));
+        repository.revokeSessions(targetId);
+        repository.recordPasswordChange(
+                actor.id(), actor.displayName(), actor.adminRole(),
+                target.firstName() + " " + target.lastName(), target.email());
+    }
+
     private static boolean isBlank(String value) {
         return value == null || value.isBlank();
     }

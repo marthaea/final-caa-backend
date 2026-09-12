@@ -5,7 +5,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -45,6 +47,16 @@ public class AdminUsersController {
                         request.lastName(), request.adminRole())));
     }
 
+    @PutMapping("/{id}/password")
+    ApiResponse<Void> changePassword(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable long id,
+            @RequestBody PasswordRequest request
+    ) {
+        admins.changePassword(AuthenticatedActor.from(jwt), id, request.password());
+        return ApiResponse.success(null);
+    }
+
     record AdminRequest(
             String email,
             String password,
@@ -52,5 +64,8 @@ public class AdminUsersController {
             String lastName,
             String adminRole
     ) {
+    }
+
+    record PasswordRequest(String password) {
     }
 }
