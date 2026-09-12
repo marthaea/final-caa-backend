@@ -222,6 +222,23 @@ class AuthApiIntegrationTest {
     }
 
     @Test
+    void forgotPasswordDoesNotSendEmailWhenAddressIsUnknown() throws Exception {
+        jdbc.execute("TRUNCATE outbox_events RESTART IDENTITY CASCADE");
+        mvc.perform(post("/api/auth/forgot-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"email":"not-in-system@example.org"}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.message").value(
+                        "If that email is registered, a password reset link has been sent"));
+        assertThat(jdbc.queryForObject("""
+                SELECT count(*) FROM outbox_events
+                WHERE event_type = 'identity.password-reset-requested'
+                """, Integer.class)).isZero();
+    }
+
+    @Test
     void verificationAndPasswordResetTokensAreSinglePurposeAndInvalidateSessions() throws Exception {
         MvcResult registration = register("recovery@example.org");
         Cookie refresh = registration.getResponse().getCookie("caa_refresh");

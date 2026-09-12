@@ -194,6 +194,8 @@ public class IdentityService {
 
     @Transactional
     public void forgotPassword(String email) {
+        // Only registered, active users receive a reset email. Unknown addresses
+        // are ignored; the API still returns NEUTRAL_RESET_MESSAGE (no enumeration).
         repository.findUserByEmail(normalizeEmail(email))
                 .filter(UserAccount::isActive)
                 .ifPresent(user -> {

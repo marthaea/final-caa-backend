@@ -50,7 +50,10 @@ public class OutboxEmailWorker {
                         'email.custom-requested',
                         'email.delivery-requested',
                         'application.status-notification-requested',
-                        'application.intern-acceptance-requested'
+                        'application.intern-acceptance-requested',
+                        'job.submitted-for-review',
+                        'job.pending-final-approval',
+                        'job.declined'
                     )
                 ORDER BY occurred_at
                 FOR UPDATE SKIP LOCKED
@@ -97,8 +100,8 @@ public class OutboxEmailWorker {
     }
 
     private MailContent content(String eventType, JsonNode payload) {
-        String to = text(payload, "to", text(payload, "email", null));
-        String firstName = escape(text(payload, "firstName", "Applicant"));
+        String to = recipient(payload);
+        String firstName = firstName(payload);
         return switch (eventType) {
             case "identity.welcome-requested" -> new MailContent(
                     to,
@@ -122,9 +125,6 @@ public class OutboxEmailWorker {
             }
             case "email.custom-requested", "email.delivery-requested" -> new MailContent(
                     to, text(payload, "subject", ""), text(payload, "body", ""));
-            // These two were previously enqueued by ApplicationService but never
-            // reached here at all — excluded from the polling query above, so
-            // every status-change and offer email silently sat undelivered forever.
             case "application.status-notification-requested" -> new MailContent(
                     to,
                     "Application Update — " + text(payload, "jobTitle", ""),
@@ -137,8 +137,76 @@ public class OutboxEmailWorker {
                             + "We are excited to have you join the team.</p><p>A formal offer letter with your "
                             + "terms and conditions will follow separately. Please log in to the UCAA "
                             + "e-Recruitment Portal for further details.</p>");
+            case "job.submitted-for-review" -> new MailContent(
+                    to,
+                    "Job submitted for department review — " + text(payload, "jobTitle", ""),
+                    "<p>Your job listing <strong>" + escape(text(payload, "jobTitle", ""))
+                            + "</strong> has been submitted for department review by "
+                            + escape(text(payload, "submittedBy", "HR")) + ".</p>");
+            case "job.pending-final-approval" -> new MailContent(
+                    to,
+                    "Job awaiting final approval — " + text(payload, "jobTitle", ""),
+                    "<p>Your job listing <strong>" + escape(text(payload, "jobTitle", ""))
+                            + "</strong> passed department review and is awaiting final HR approval (reviewed by "
+                            + escape(text(payload, "reviewedBy", "HOD")) + ").</p>");
+            case "job.declined" -> new MailContent(
+                    to,
+                    "Job listing declined — " + text(payload, "jobTitle", ""),
+                    "<p>Your job listing <strong>" + escape(text(payload, "jobTitle", ""))
+                            + "</strong> was declined at " + escape(text(payload, "stage", "review"))
+                            + ".</p><p>Reason: " + escape(text(payload, "reason", "")) + "</p>");
             default -> throw new IllegalArgumentException("Unsupported email event " + eventType);
         };
+    }
+
+    private String recipient(JsonNode payload) {
+        String direct = text(payload, "to", text(payload, "email", null));
+        if (direct != null && !direct.isBlank()) {
+            return direct;
+        }
+        String creator = emailForUserId(payload, "creatorId");
+        if (creator != null && !creator.isBlank()) {
+            return creator;
+        }
+        return emailForJobCreator(payload);
+    }
+
+    private String firstName(JsonNode payload) {
+        String explicit = text(payload, "firstName", null);
+        if (explicit != null && !explicit.isBlank()) {
+            return escape(explicit);
+        }
+        String full = text(payload, "candidateName", "Applicant");
+        int space = full.indexOf(' ');
+        return escape(space > 0 ? full.substring(0, space) : full);
+    }
+
+    private String emailForJobCreator(JsonNode payload) {
+        JsonNode jobId = payload.get("jobId");
+        if (jobId == null || jobId.isNull()) {
+            return null;
+        }
+        return jdbc.sql("""
+                SELECT u.email FROM jobs j
+                JOIN users u ON u.id = j.created_by
+                WHERE j.id = :jobId
+                """)
+                .param("jobId", jobId.asLong())
+                .query(String.class)
+                .optional()
+                .orElse(null);
+    }
+
+    private String emailForUserId(JsonNode payload, String field) {
+        JsonNode id = payload.get(field);
+        if (id == null || id.isNull()) {
+            return null;
+        }
+        return jdbc.sql("SELECT email FROM users WHERE id = :id")
+                .param("id", id.asLong())
+                .query(String.class)
+                .optional()
+                .orElse(null);
     }
 
     private void send(MailContent content) throws Exception {
