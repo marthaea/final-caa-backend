@@ -43,7 +43,7 @@ services:
       FRONTEND_URL: ${FRONTEND_URL:-https://recruitfront.netlify.app}
       SMTP_ENABLED: ${SMTP_ENABLED:-false}
       SMTP_HOST: ${SMTP_HOST:-smtp-relay.brevo.com}
-      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_PORT: ${SMTP_PORT:-2525}
       SMTP_AUTH: ${SMTP_AUTH:-true}
       SMTP_STARTTLS: ${SMTP_STARTTLS:-true}
       SMTP_USER: ${SMTP_USER:-}

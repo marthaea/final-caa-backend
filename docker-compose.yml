@@ -1,0 +1,3 @@
+# Default compose file on Thewton-Server (same stack as docker-compose.prod.yml).
+include:
+  - docker-compose.prod.yml
