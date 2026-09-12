@@ -115,7 +115,7 @@ public class OutboxEmailWorker {
             case "identity.welcome-requested" -> new MailContent(
                     to,
                     "Welcome to UCAA e-Recruitment",
-                    layout(
+                    mailLayout(
                             "Welcome to the UCAA recruitment portal",
                             greeting(firstName)
                                     + paragraph(
@@ -127,7 +127,7 @@ public class OutboxEmailWorker {
                 yield new MailContent(
                         to,
                         "Verify your email address — UCAA Recruitment",
-                        layout(
+                        mailLayout(
                                 "Confirm your email to receive application updates",
                                 greeting(firstName)
                                         + paragraph(
@@ -143,7 +143,7 @@ public class OutboxEmailWorker {
                 yield new MailContent(
                         to,
                         "Reset your password — UCAA Recruitment",
-                        layout(
+                        mailLayout(
                                 "Reset your recruitment portal password",
                                 greeting(firstName)
                                         + paragraph(
@@ -157,13 +157,13 @@ public class OutboxEmailWorker {
             case "email.custom-requested", "email.delivery-requested" -> new MailContent(
                     to,
                     text(payload, "subject", "Message from UCAA HR"),
-                    layout(
+                    mailLayout(
                             text(payload, "subject", "Message from UCAA HR"),
                             wrapCustomBody(text(payload, "body", ""))));
             case "application.status-notification-requested" -> new MailContent(
                     to,
                     "Application update — " + text(payload, "jobTitle", "Vacancy"),
-                    layout(
+                    mailLayout(
                             "Update on your job application",
                             greeting(firstName)
                                     + heading(text(payload, "jobTitle", "Your application"))
@@ -172,7 +172,7 @@ public class OutboxEmailWorker {
             case "application.intern-acceptance-requested" -> new MailContent(
                     to,
                     "Internship offer — " + text(payload, "jobTitle", "UCAA"),
-                    layout(
+                    mailLayout(
                             "Congratulations on your internship offer",
                             greeting(firstName)
                                     + paragraph(
@@ -187,7 +187,7 @@ public class OutboxEmailWorker {
             case "job.submitted-for-review" -> new MailContent(
                     to,
                     "Job submitted for review — " + text(payload, "jobTitle", ""),
-                    layout(
+                    mailLayout(
                             "Your job listing was submitted for department review",
                             paragraph(
                                     "Your listing <strong>" + escape(text(payload, "jobTitle", ""))
@@ -198,7 +198,7 @@ public class OutboxEmailWorker {
             case "job.pending-final-approval" -> new MailContent(
                     to,
                     "Job awaiting final approval — " + text(payload, "jobTitle", ""),
-                    layout(
+                    mailLayout(
                             "Job listing passed department review",
                             paragraph(
                                     "Your listing <strong>" + escape(text(payload, "jobTitle", ""))
@@ -207,7 +207,7 @@ public class OutboxEmailWorker {
             case "job.declined" -> new MailContent(
                     to,
                     "Job listing declined — " + text(payload, "jobTitle", ""),
-                    layout(
+                    mailLayout(
                             "Job listing was declined",
                             paragraph(
                                     "Your listing <strong>" + escape(text(payload, "jobTitle", ""))
@@ -219,6 +219,18 @@ public class OutboxEmailWorker {
                                                     + escape(text(payload, "reason", "No reason provided.")))));
             default -> throw new IllegalArgumentException("Unsupported email event " + eventType);
         };
+    }
+
+    private String mailLayout(String preheader, String bodyHtml) {
+        return layout(preheader, bodyHtml, emailLogoUrl());
+    }
+
+    private String emailLogoUrl() {
+        String base = properties.frontendUrl().trim();
+        if (base.endsWith("/")) {
+            base = base.substring(0, base.length() - 1);
+        }
+        return base + "/caa-logo.png";
     }
 
     private String recipient(JsonNode payload) {

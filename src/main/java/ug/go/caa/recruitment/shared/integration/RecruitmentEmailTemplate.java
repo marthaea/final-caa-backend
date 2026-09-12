@@ -16,7 +16,7 @@ public final class RecruitmentEmailTemplate {
     private RecruitmentEmailTemplate() {
     }
 
-    public static String layout(String preheader, String bodyHtml) {
+    public static String layout(String preheader, String bodyHtml, String logoUrl) {
         String safePreheader = escape(preheader);
         return """
                 <!DOCTYPE html>
@@ -35,13 +35,8 @@ public final class RecruitmentEmailTemplate {
                     <tr><td align="center" style="padding:32px 16px;">
                       <table role="presentation" width="600" cellspacing="0" cellpadding="0" style="max-width:600px;width:100%%;">
                         <tr>
-                          <td style="background:%s;border-radius:12px 12px 0 0;padding:28px 32px;text-align:center;">
-                            <p style="margin:0;font-size:13px;letter-spacing:0.08em;text-transform:uppercase;color:rgba(255,255,255,0.85);">
-                              Uganda Civil Aviation Authority
-                            </p>
-                            <h1 style="margin:8px 0 0;font-size:22px;font-weight:600;color:#ffffff;line-height:1.3;">
-                              UCAA e&#8209;Recruitment Portal
-                            </h1>
+                          <td style="background:%s;border-radius:12px 12px 0 0;padding:28px 32px 24px;text-align:center;">
+                            %s
                           </td>
                         </tr>
                         <tr>
@@ -70,12 +65,33 @@ public final class RecruitmentEmailTemplate {
                         safePreheader,
                         BG,
                         NAVY,
+                        headerBlock(logoUrl),
                         BORDER,
                         BORDER,
                         bodyHtml,
                         footerBlock(),
                         BORDER,
                         MUTED);
+    }
+
+    private static String headerBlock(String logoUrl) {
+        String logo = "";
+        if (logoUrl != null && !logoUrl.isBlank()) {
+            logo = """
+                    <img src="%s" width="72" height="72" alt="Uganda Civil Aviation Authority"
+                         style="display:block;margin:0 auto 14px;border:0;border-radius:10px;background:#ffffff;padding:8px;"/>
+                    """
+                    .formatted(escapeAttribute(logoUrl.strip()));
+        }
+        return logo
+                + """
+                <p style="margin:0;font-size:13px;letter-spacing:0.08em;text-transform:uppercase;color:rgba(255,255,255,0.85);">
+                  Uganda Civil Aviation Authority
+                </p>
+                <h1 style="margin:8px 0 0;font-size:22px;font-weight:600;color:#ffffff;line-height:1.3;">
+                  UCAA e&#8209;Recruitment Portal
+                </h1>
+                """;
     }
 
     public static String greeting(String firstName) {
