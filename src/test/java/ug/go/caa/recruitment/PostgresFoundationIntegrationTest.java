@@ -48,7 +48,7 @@ class PostgresFoundationIntegrationTest {
         List<String> expected = List.of(
                 "analytics_events", "api_rate_limits", "applications", "assessments", "audit_log",
                 "candidate_scores", "chatbot_queries", "criteria", "cv_profiles",
-                "departments", "job_templates", "jobs", "notifications",
+                "departments", "interview_panel_members", "job_templates", "jobs", "notifications",
                 "outbox_events", "permission_overrides", "refresh_sessions", "sent_emails",
                 "settings", "staff", "users");
         List<String> actual = jdbc.queryForList("""
@@ -58,7 +58,7 @@ class PostgresFoundationIntegrationTest {
                 order by table_name
                 """, String.class);
 
-        assertThat(flyway.info().applied()).hasSize(2);
+        assertThat(flyway.info().applied()).hasSize(5);
         assertThat(actual).containsAll(expected);
     }
 

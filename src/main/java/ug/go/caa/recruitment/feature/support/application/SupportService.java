@@ -88,11 +88,7 @@ public class SupportService {
     // to self-diagnose "why didn't this candidate get an email" without
     // asking a developer to check the .env file.
     public EmailStatusResponse emailStatus(AuthenticatedActor actor) {
-        boolean canView = authorization.hasPermission(actor, "canManageSettings")
-                || authorization.hasPermission(actor, "canSendNotifications");
-        if (!canView) {
-            throw new ApiException(HttpStatus.FORBIDDEN, "Permission denied");
-        }
+        authorization.requireAnyPermission(actor, "canManageSettings", "canSendNotifications");
         EmailStatusData data = repository.emailStatus();
         return new EmailStatusResponse(integrations.mail().enabled(), data.pending(), data.failing(), data.lastSentAt());
     }
@@ -152,11 +148,7 @@ public class SupportService {
         // canViewAudit alone would exclude hr_officer/hr/recruiter — the roles
         // that actually run shortlisting and need to see their own
         // accountability trail in Shortlisting Reports, not just auditors.
-        boolean canView = authorization.hasPermission(actor, "canViewAudit")
-                || authorization.hasPermission(actor, "canShortlist");
-        if (!canView) {
-            throw new ApiException(HttpStatus.FORBIDDEN, "Permission denied");
-        }
+        authorization.requireAnyPermission(actor, "canViewAudit", "canShortlist");
         return repository.audits(search, cap(limit, 200, 1000));
     }
 
@@ -196,11 +188,7 @@ public class SupportService {
         // canViewAudit alone would exclude hr_officer/hr/recruiter, same gap
         // already fixed for audits() above — those roles run recruitment day
         // to day and need to see site traffic, not just auditors.
-        boolean canView = authorization.hasPermission(actor, "canViewAudit")
-                || authorization.hasPermission(actor, "canShortlist");
-        if (!canView) {
-            throw new ApiException(HttpStatus.FORBIDDEN, "Permission denied");
-        }
+        authorization.requireAnyPermission(actor, "canViewAudit", "canShortlist");
         int requestedDays = cap(days, 30, 365);
         List<AnalyticsEventData> events = repository.analyticsEvents(requestedDays);
         Map<String, Long> counts = new HashMap<>();
@@ -250,11 +238,7 @@ public class SupportService {
         // Same canViewAudit-only gap as analytics()/audits() above — Martha's
         // question log is shown inside the Site Analytics tab, so whoever can
         // see that page must be able to load this too.
-        boolean canView = authorization.hasPermission(actor, "canViewAudit")
-                || authorization.hasPermission(actor, "canShortlist");
-        if (!canView) {
-            throw new ApiException(HttpStatus.FORBIDDEN, "Permission denied");
-        }
+        authorization.requireAnyPermission(actor, "canViewAudit", "canShortlist");
         // Set.of(...).contains(null) throws NPE rather than returning false —
         // and the caller's normal case (no outcome filter, "show everything")
         // is exactly the null case, so every unfiltered call to this endpoint

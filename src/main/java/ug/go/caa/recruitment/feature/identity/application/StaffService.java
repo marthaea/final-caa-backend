@@ -27,11 +27,7 @@ public class StaffService {
         // canViewStaff alone excludes hr_officer/hr/recruiter/dhra/hod — the
         // roles that run Interview Panel selection and need to browse the
         // staff directory to do it, not just HR admin proper.
-        boolean canView = authorization.hasPermission(actor, "canViewStaff")
-                || authorization.hasPermission(actor, "canShortlist");
-        if (!canView) {
-            throw new ApiException(HttpStatus.FORBIDDEN, "Permission denied");
-        }
+        authorization.requireAnyPermission(actor, "canViewStaff", "canShortlist");
         return repository.findAll(search).stream().map(this::response).toList();
     }
 

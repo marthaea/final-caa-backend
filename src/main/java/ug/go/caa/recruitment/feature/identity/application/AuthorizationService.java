@@ -32,6 +32,21 @@ public class AuthorizationService {
         }
     }
 
+    /** Grants access if the actor holds any one of the listed permissions —
+     *  for the handful of endpoints two otherwise-disjoint role groups both
+     *  legitimately need (e.g. shortlisting staff and auditors both need the
+     *  staff directory). Keeps the same Forbidden/Permission-denied split as
+     *  requirePermission: a non-admin is rejected before any permission is
+     *  even checked. */
+    public void requireAnyPermission(AuthenticatedActor actor, String... anyOf) {
+        if (!actor.isAdmin()) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "Forbidden");
+        }
+        if (Arrays.stream(anyOf).noneMatch(p -> hasPermission(actor, p))) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "Permission denied");
+        }
+    }
+
     public boolean hasPermission(AuthenticatedActor actor, String permission) {
         if (!actor.isAdmin()) {
             return false;
