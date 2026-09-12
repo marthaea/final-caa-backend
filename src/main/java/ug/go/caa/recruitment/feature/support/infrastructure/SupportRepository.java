@@ -176,7 +176,8 @@ public class SupportRepository {
             "identity.welcome-requested", "identity.email-verification-requested",
             "identity.password-reset-requested", "email.custom-requested",
             "email.delivery-requested", "application.status-notification-requested",
-            "application.intern-acceptance-requested");
+            "application.intern-acceptance-requested",
+            "job.submitted-for-review", "job.pending-final-approval", "job.declined");
 
     public EmailStatusData emailStatus() {
         Integer pending = jdbc.sql("""

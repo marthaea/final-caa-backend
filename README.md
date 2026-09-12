@@ -64,7 +64,26 @@ Equivalent: `./scripts/seed.sh {core|demo|volume|all}`
 
 RBAC defaults are code-backed in `RolePermissions` (`GET /api/permissions/roles/defaults`).
 
-### Verify
+### Email (Brevo)
+
+Transactional mail is sent by `OutboxEmailWorker` when `SMTP_ENABLED=true` (welcome,
+password reset, application status, interview panel invites, etc.).
+
+Production uses **Brevo SMTP**:
+
+| Variable | Value |
+| --- | --- |
+| `SMTP_HOST` | `smtp-relay.brevo.com` |
+| `SMTP_PORT` | `587` |
+| `SMTP_USER` | Brevo SMTP login (shown when you create an SMTP key) |
+| `SMTP_PASSWORD` | Brevo SMTP key (not your account password) |
+| `SMTP_FROM` | Verified sender in Brevo (e.g. `noreply@yourdomain.com`) |
+| `SMTP_SENDER_NAME` | Display name (defaults to `CAA HR Team`; HR can override in admin settings) |
+
+After updating `/opt/caa-recruitment/.env`, run `docker compose up -d api`. Check the
+admin **Email** panel or `GET /api/emails/status` (authenticated) for outbox pending/failed counts.
+
+## Verify
 
 ```bash
 curl -s http://localhost:8080/api/jobs | jq '.total'
