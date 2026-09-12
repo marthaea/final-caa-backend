@@ -24,7 +24,10 @@ public class StaffService {
     }
 
     public List<StaffResponse> findAll(AuthenticatedActor actor, String search) {
-        authorization.requirePermission(actor, "canViewStaff");
+        // canViewStaff alone excludes hr_officer/hr/recruiter/dhra/hod — the
+        // roles that run Interview Panel selection and need to browse the
+        // staff directory to do it, not just HR admin proper.
+        authorization.requireAnyPermission(actor, "canViewStaff", "canShortlist");
         return repository.findAll(search).stream().map(this::response).toList();
     }
 

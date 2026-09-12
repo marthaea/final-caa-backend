@@ -153,7 +153,7 @@ final class SeedCatalog {
             new JobSeed("INT", "Internal — Manager, Aerodrome Operations", "Operations", "ops",
                     "Entebbe Airport", "UGX 5.5M–7.0M", "UG2", "Full-time",
                     LocalDate.of(2026, 6, 25), "internal", 30, 8, "Masters", false,
-                    "Open to verified CAA staff only."),
+                    "Open to verified UCAA staff only."),
             new JobSeed("ACO", "Approach Control Officer", "Air Traffic Mgmt", "atm",
                     "Entebbe Airport", "UGX 3.5M–4.8M", "UG4", "Full-time",
                     LocalDate.of(2026, 7, 20), "external", 24, 3, "Degree", true, null),
@@ -175,7 +175,7 @@ final class SeedCatalog {
             new JobSeed("AIS", "Internal — Principal, Aeronautical Information Services", "Operations", "ops",
                     "Entebbe Airport", "UGX 4.5M–6.0M", "UG3", "Full-time",
                     LocalDate.of(2026, 7, 22), "internal", 28, 6, "Degree", false,
-                    "Open to verified CAA staff only."));
+                    "Open to verified UCAA staff only."));
 
     /** Per-job volume counts keyed by seed abbr order (1..14). */
     static final int[] VOLUME_COUNTS = {

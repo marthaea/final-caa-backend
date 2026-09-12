@@ -48,7 +48,9 @@ public class OutboxEmailWorker {
                         'identity.email-verification-requested',
                         'identity.password-reset-requested',
                         'email.custom-requested',
-                        'email.delivery-requested'
+                        'email.delivery-requested',
+                        'application.status-notification-requested',
+                        'application.intern-acceptance-requested'
                     )
                 ORDER BY occurred_at
                 FOR UPDATE SKIP LOCKED
@@ -120,6 +122,21 @@ public class OutboxEmailWorker {
             }
             case "email.custom-requested", "email.delivery-requested" -> new MailContent(
                     to, text(payload, "subject", ""), text(payload, "body", ""));
+            // These two were previously enqueued by ApplicationService but never
+            // reached here at all — excluded from the polling query above, so
+            // every status-change and offer email silently sat undelivered forever.
+            case "application.status-notification-requested" -> new MailContent(
+                    to,
+                    "Application Update — " + text(payload, "jobTitle", ""),
+                    text(payload, "message", ""));
+            case "application.intern-acceptance-requested" -> new MailContent(
+                    to,
+                    "Welcome to the CAA Internship Program — " + text(payload, "jobTitle", ""),
+                    "<p>Dear " + firstName + ",</p><p>Congratulations on your offer for the position of "
+                            + escape(text(payload, "jobTitle", "")) + " at the Uganda Civil Aviation Authority! "
+                            + "We are excited to have you join the team.</p><p>A formal offer letter with your "
+                            + "terms and conditions will follow separately. Please log in to the UCAA "
+                            + "e-Recruitment Portal for further details.</p>");
             default -> throw new IllegalArgumentException("Unsupported email event " + eventType);
         };
     }

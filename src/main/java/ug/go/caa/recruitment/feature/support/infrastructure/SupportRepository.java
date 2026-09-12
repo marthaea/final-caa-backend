@@ -11,16 +11,21 @@ import java.util.Optional;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 
 @Repository
 public class SupportRepository {
 
     private final JdbcClient jdbc;
     private final JdbcTemplate template;
+    private final ObjectMapper mapper;
 
-    public SupportRepository(JdbcClient jdbc, JdbcTemplate template) {
+    public SupportRepository(JdbcClient jdbc, JdbcTemplate template, ObjectMapper mapper) {
         this.jdbc = jdbc;
         this.template = template;
+        this.mapper = mapper;
     }
 
     public Optional<SettingsData> settings() {
@@ -48,6 +53,9 @@ public class SupportRepository {
                   notif_template_decline = COALESCE(:decline, notif_template_decline),
                   notif_template_interview = COALESCE(:interview, notif_template_interview),
                   notif_template_offer = COALESCE(:offer, notif_template_offer),
+                  notif_template_assessment_scheduled = COALESCE(:assessmentScheduled, notif_template_assessment_scheduled),
+                  notif_template_panel_invite = COALESCE(:panelInvite, notif_template_panel_invite),
+                  default_cgpa_threshold = COALESCE(:defaultCgpa, default_cgpa_threshold),
                   updated_at = now()
                 WHERE id = :id
                 """)
@@ -62,6 +70,9 @@ public class SupportRepository {
                 .param("decline", nonBlank(patch.decline()))
                 .param("interview", nonBlank(patch.interview()))
                 .param("offer", nonBlank(patch.offer()))
+                .param("assessmentScheduled", nonBlank(patch.assessmentScheduled()))
+                .param("panelInvite", nonBlank(patch.panelInvite()))
+                .param("defaultCgpa", patch.defaultCgpaThreshold())
                 .param("id", id)
                 .update();
         return settings().orElseThrow();
@@ -146,16 +157,42 @@ public class SupportRepository {
                 .query(this::mapAudit).list();
     }
 
-    public AuditData insertAudit(long actorId, String actor, String role, String action, String target) {
+    public AuditData insertAudit(
+            long actorId, String actor, String role, String action, String target, JsonNode metadata
+    ) {
         long id = jdbc.sql("""
-                INSERT INTO audit_log (actor_user_id, actor, role, action, target)
-                VALUES (:actorId, :actor, :role, :action, :target) RETURNING id
+                INSERT INTO audit_log (actor_user_id, actor, role, action, target, metadata)
+                VALUES (:actorId, :actor, :role, :action, :target, CAST(:metadata AS jsonb)) RETURNING id
                 """)
                 .param("actorId", actorId).param("actor", actor).param("role", role)
                 .param("action", action).param("target", target)
+                .param("metadata", json(metadata))
                 .query(Long.class).single();
         return jdbc.sql("SELECT * FROM audit_log WHERE id = :id")
                 .param("id", id).query(this::mapAudit).single();
+    }
+
+    private static final List<String> MAIL_EVENT_TYPES = List.of(
+            "identity.welcome-requested", "identity.email-verification-requested",
+            "identity.password-reset-requested", "email.custom-requested",
+            "email.delivery-requested", "application.status-notification-requested",
+            "application.intern-acceptance-requested");
+
+    public EmailStatusData emailStatus() {
+        Integer pending = jdbc.sql("""
+                SELECT count(*) FROM outbox_events
+                WHERE published_at IS NULL AND event_type IN (:types)
+                """).param("types", MAIL_EVENT_TYPES).query(Integer.class).single();
+        Integer failing = jdbc.sql("""
+                SELECT count(*) FROM outbox_events
+                WHERE published_at IS NULL AND attempts > 0 AND event_type IN (:types)
+                """).param("types", MAIL_EVENT_TYPES).query(Integer.class).single();
+        OffsetDateTime lastSent = jdbc.sql("""
+                SELECT max(published_at) FROM outbox_events
+                WHERE published_at IS NOT NULL AND event_type IN (:types)
+                """).param("types", MAIL_EVENT_TYPES).query(OffsetDateTime.class).optional().orElse(null);
+        return new EmailStatusData(pending == null ? 0 : pending, failing == null ? 0 : failing,
+                lastSent == null ? null : lastSent.toInstant());
     }
 
     public void insertAnalytics(String type, Long jobId, String jobTitle, String query, String sessionId) {
@@ -183,23 +220,23 @@ public class SupportRepository {
                 """).query((row, n) -> new EventCount(row.getString("event_type"), row.getLong("count"))).list();
     }
 
-    public List<TopJob> topJobs() {
+    public List<TopJob> topJobs(int days) {
         return jdbc.sql("""
                 SELECT job_id, job_title, count(*) AS count FROM analytics_events
-                WHERE event_type = 'job_view' AND created_at >= now() - interval '7 days'
+                WHERE event_type = 'job_view' AND created_at >= now() - (:days * interval '1 day')
                   AND job_id IS NOT NULL
                 GROUP BY job_id, job_title ORDER BY count DESC LIMIT 5
-                """).query((row, n) -> new TopJob(
+                """).param("days", days).query((row, n) -> new TopJob(
                         row.getLong("job_id"), row.getString("job_title"), row.getLong("count"))).list();
     }
 
-    public List<TopSearch> topSearches() {
+    public List<TopSearch> topSearches(int days) {
         return jdbc.sql("""
                 SELECT query, count(*) AS count FROM analytics_events
                 WHERE event_type = 'search' AND query IS NOT NULL
-                  AND created_at >= now() - interval '7 days'
+                  AND created_at >= now() - (:days * interval '1 day')
                 GROUP BY query ORDER BY count DESC LIMIT 10
-                """).query((row, n) -> new TopSearch(row.getString("query"), row.getLong("count"))).list();
+                """).param("days", days).query((row, n) -> new TopSearch(row.getString("query"), row.getLong("count"))).list();
     }
 
     public List<DailyCount> dailyCounts() {
@@ -211,12 +248,13 @@ public class SupportRepository {
                         row.getObject("date", LocalDate.class), row.getLong("count"))).list();
     }
 
-    public void insertChatbot(String query, String matchedQuestion, String outcome, String persona) {
+    public void insertChatbot(String query, String matchedQuestion, String outcome, String persona, Integer confidence) {
         jdbc.sql("""
-                INSERT INTO chatbot_queries (query, matched_question, outcome, persona)
-                VALUES (:query, :matched, :outcome, :persona)
+                INSERT INTO chatbot_queries (query, matched_question, outcome, persona, confidence)
+                VALUES (:query, :matched, :outcome, :persona, :confidence)
                 """).param("query", query).param("matched", matchedQuestion)
-                .param("outcome", outcome).param("persona", persona).update();
+                .param("outcome", outcome).param("persona", persona)
+                .param("confidence", confidence).update();
     }
 
     public List<ChatbotData> chatbot(String outcome, int days, int limit) {
@@ -242,7 +280,10 @@ public class SupportRepository {
                 row.getInt("session_timeout_minutes"), row.getInt("closing_soon_days"),
                 row.getInt("max_applications_per_candidate"),
                 row.getString("notif_template_shortlist"), row.getString("notif_template_decline"),
-                row.getString("notif_template_interview"), row.getString("notif_template_offer"));
+                row.getString("notif_template_interview"), row.getString("notif_template_offer"),
+                row.getBigDecimal("default_cgpa_threshold"),
+                row.getString("notif_template_assessment_scheduled"),
+                row.getString("notif_template_panel_invite"));
     }
 
     private NotificationData mapNotification(ResultSet row, int n) throws SQLException {
@@ -259,7 +300,20 @@ public class SupportRepository {
 
     private AuditData mapAudit(ResultSet row, int n) throws SQLException {
         return new AuditData(row.getLong("id"), instant(row, "at"), row.getString("actor"),
-                row.getString("role"), row.getString("action"), row.getString("target"));
+                row.getString("role"), row.getString("action"), row.getString("target"),
+                jsonNode(row.getString("metadata")));
+    }
+
+    private JsonNode jsonNode(String value) {
+        try {
+            return mapper.readTree(value == null ? "{}" : value);
+        } catch (JacksonException exception) {
+            throw new IllegalStateException("Invalid audit metadata JSON", exception);
+        }
+    }
+
+    private String json(JsonNode value) {
+        return value == null ? "{}" : value.toString();
     }
 
     private AnalyticsEventData mapAnalyticsEvent(ResultSet row, int n) throws SQLException {
@@ -271,9 +325,16 @@ public class SupportRepository {
     }
 
     private ChatbotData mapChatbot(ResultSet row, int n) throws SQLException {
+        // wasNull() reflects only the most recently read column — reading it
+        // after the other row.getX(...) calls below (each of which resets the
+        // flag to their own result) would report whether asked_at was null,
+        // not confidence, silently turning every real NULL confidence into 0.
+        int confidenceValue = row.getInt("confidence");
+        Integer confidence = row.wasNull() ? null : confidenceValue;
         return new ChatbotData(row.getLong("id"), row.getString("query"),
                 row.getString("matched_question"), row.getString("outcome"),
-                row.getString("persona"), instant(row, "asked_at"));
+                row.getString("persona"), instant(row, "asked_at"),
+                confidence);
     }
 
     private static Instant instant(ResultSet row, String column) throws SQLException {
@@ -287,13 +348,15 @@ public class SupportRepository {
     public record SettingsPatch(String orgName, String emailSenderName, Integer minAgeThreshold,
             Boolean allowExternalInternalJobs, Integer sessionTimeoutMinutes, Integer closingSoonDays,
             Integer maxApplicationsPerCandidate, String shortlist, String decline,
-            String interview, String offer) {
+            String interview, String offer, java.math.BigDecimal defaultCgpaThreshold,
+            String assessmentScheduled, String panelInvite) {
     }
 
     public record SettingsData(String orgName, String emailSenderName, int minAgeThreshold,
             boolean allowExternalInternalJobs, int sessionTimeoutMinutes, int closingSoonDays,
             int maxApplicationsPerCandidate, String shortlist, String decline,
-            String interview, String offer) {
+            String interview, String offer, java.math.BigDecimal defaultCgpaThreshold,
+            String assessmentScheduled, String panelInvite) {
     }
 
     public record NotificationData(long id, String recipientEmail, String title, String message,
@@ -308,7 +371,7 @@ public class SupportRepository {
             Instant sentAt, String trigger, String jobTitle) {
     }
 
-    public record AuditData(long id, Instant at, String actor, String role, String action, String target) {
+    public record AuditData(long id, Instant at, String actor, String role, String action, String target, JsonNode metadata) {
     }
 
     public record AnalyticsEventData(long id, String type, Long jobId, String jobTitle,
@@ -328,6 +391,9 @@ public class SupportRepository {
     }
 
     public record ChatbotData(long id, String query, String matchedQuestion,
-            String outcome, String persona, Instant askedAt) {
+            String outcome, String persona, Instant askedAt, Integer confidence) {
+    }
+
+    public record EmailStatusData(int pending, int failing, Instant lastSentAt) {
     }
 }

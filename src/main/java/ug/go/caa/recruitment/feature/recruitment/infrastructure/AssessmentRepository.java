@@ -47,11 +47,11 @@ public class AssessmentRepository {
 
     public Optional<ApplicationSummary> application(long id) {
         return jdbc.sql("""
-                SELECT id, candidate_name, title, status FROM applications WHERE id = :id
+                SELECT id, candidate_name, candidate_email, title, status FROM applications WHERE id = :id
                 """)
                 .param("id", id)
                 .query((row, number) -> new ApplicationSummary(
-                        row.getLong("id"), row.getString("candidate_name"),
+                        row.getLong("id"), row.getString("candidate_name"), row.getString("candidate_email"),
                         row.getString("title"), row.getString("status")))
                 .optional();
     }
@@ -124,7 +124,7 @@ public class AssessmentRepository {
         return row.wasNull() ? null : value;
     }
 
-    public record ApplicationSummary(long id, String candidateName, String title, String status) {
+    public record ApplicationSummary(long id, String candidateName, String candidateEmail, String title, String status) {
     }
 
     public record AssessmentWrite(

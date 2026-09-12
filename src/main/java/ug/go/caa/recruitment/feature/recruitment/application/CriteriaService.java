@@ -53,8 +53,19 @@ public class CriteriaService {
         String title = repository.jobTitle(jobId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Job not found"));
         CriteriaData saved = repository.save(jobId, criteria);
-        audit.write(actor, "Updated criteria", title);
+        audit.write(actor, "Updated criteria", title, criteriaSnapshot(saved));
         return saved;
+    }
+
+    private JsonNode criteriaSnapshot(CriteriaData criteria) {
+        var node = mapper.createObjectNode();
+        node.put("jobId", criteria.jobId());
+        if (criteria.minCgpa() != null) node.put("minCgpa", criteria.minCgpa());
+        if (criteria.minExperienceYears() != null) node.put("minExperienceYears", criteria.minExperienceYears());
+        if (criteria.requiredQualLevel() != null) node.put("requiredQualLevel", criteria.requiredQualLevel());
+        node.set("screeningQuestions", criteria.screeningQuestions());
+        node.set("disqualifyingUniversities", criteria.disqualifyingUniversities());
+        return node;
     }
 
     private JsonNode publicRequirements(JsonNode requirements) {

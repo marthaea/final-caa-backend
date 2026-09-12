@@ -119,6 +119,8 @@ public class DatabaseSeeder {
                   notif_template_decline = :decline,
                   notif_template_interview = :interview,
                   notif_template_offer = :offer,
+                  notif_template_assessment_scheduled = COALESCE(notif_template_assessment_scheduled, :assessmentScheduled),
+                  notif_template_panel_invite = COALESCE(notif_template_panel_invite, :panelInvite),
                   updated_at = now()
                 WHERE id = :id
                 """)
@@ -137,6 +139,10 @@ public class DatabaseSeeder {
                         "Dear {name}, congratulations! Your application for {role} has progressed to the interview stage. Our HR team will contact you to confirm the date and time.")
                 .param("offer",
                         "Dear {name}, we are delighted to offer you the position of {role}. Please review the attached offer letter and respond within five (5) working days.")
+                .param("assessmentScheduled",
+                        "Dear {name},\n\nYour {type} assessment for the position of {role} at the Uganda Civil Aviation Authority has been scheduled for {when}.{venueLine}\n\nPlease log in to the UCAA e-Recruitment Portal for further details, and come prepared as instructed.\n\nYours sincerely,\nHuman Resources Department\nUganda Civil Aviation Authority")
+                .param("panelInvite",
+                        "Dear {name},\n\nYou have been selected by {invitedBy} to serve on the interview panel for the position of {role} at the Uganda Civil Aviation Authority.\n\nPlease log in to the HR Console for panel scheduling details, or contact Human Resources for more information.\n\nThank you for your service to the selection process.\n\nYours sincerely,\nHuman Resources Department\nUganda Civil Aviation Authority")
                 .param("id", id)
                 .update();
         log.info("Portal settings upserted (id={})", id);
@@ -764,22 +770,22 @@ public class DatabaseSeeder {
                         """,
                         "Degree",
                         """
-                        [{"level":"Degree","title":"BSc Electrical Engineering","institution":"Makerere University","year":"2013"},
-                         {"level":"A-Level","title":"PCM","institution":"Namilyango College","year":"2009"}]
+                        [{"level":"Degree","course":"BSc Electrical Engineering","institution":"Makerere University","year":"2013-06"},
+                         {"level":"A-Level","course":"PCM","institution":"Namilyango College","year":"2009-12"}]
                         """,
                         """
                         ["Air Traffic Control","Radar Systems","Radio Communication",
                          "ICAO Procedures","Emergency Handling","Team Leadership"]
                         """,
                         """
-                        [{"title":"Air Traffic Control Officer","organization":"Uganda Civil Aviation Authority",
-                          "from":"2014-01-01","to":"2024-12-31",
+                        [{"title":"Air Traffic Control Officer","organisation":"Uganda Civil Aviation Authority",
+                          "start":"2014-01","end":"2024-12",
                           "description":"Managed en-route and approach traffic at Entebbe ACC. Supervised radar and procedural control."}]
                         """,
                         """
-                        [{"name":"Col. Peter Wamala","title":"Director, Air Traffic Management","organization":"UCAA",
+                        [{"name":"Col. Peter Wamala","title":"Director, Air Traffic Management","organisation":"UCAA",
                           "phone":"+256 414 352 000","email":"pwamala@caa.go.ug"},
-                         {"name":"Dr. Rose Nalwoga","title":"Head of Department","organization":"Makerere University",
+                         {"name":"Dr. Rose Nalwoga","title":"Head of Department","organisation":"Makerere University",
                           "phone":"+256 772 900 100","email":"r.nalwoga@mak.ac.ug"}]
                         """,
                         """
@@ -798,22 +804,22 @@ public class DatabaseSeeder {
                         """,
                         "Degree",
                         """
-                        [{"level":"Degree","title":"Bachelor of Commerce (Accounting)","institution":"Kyambogo University","year":"2015"},
-                         {"level":"A-Level","title":"ECA","institution":"St Mary's College Namagunga","year":"2011"}]
+                        [{"level":"Degree","course":"Bachelor of Commerce (Accounting)","institution":"Kyambogo University","year":"2015-06"},
+                         {"level":"A-Level","course":"ECA","institution":"St Mary's College Namagunga","year":"2011-12"}]
                         """,
                         """
                         ["Financial Analysis","Revenue Assurance","IFRS Reporting","MS Excel",
                          "QuickBooks","Budget Planning","Internal Audit"]
                         """,
                         """
-                        [{"title":"Finance Analyst","organization":"Stanbic Bank Uganda",
-                          "from":"2016-03-01","to":"2024-01-31",
+                        [{"title":"Finance Analyst","organisation":"Stanbic Bank Uganda",
+                          "start":"2016-03","end":"2024-01",
                           "description":"Led revenue assurance audits, reconciled accounts, and produced monthly financial and compliance reports."}]
                         """,
                         """
-                        [{"name":"Mr. Charles Kiggundu","title":"Chief Finance Officer","organization":"Stanbic Bank Uganda",
+                        [{"name":"Mr. Charles Kiggundu","title":"Chief Finance Officer","organisation":"Stanbic Bank Uganda",
                           "phone":"+256 312 224 600","email":"c.kiggundu@stanbicbank.ug"},
-                         {"name":"Dr. Beatrice Nampijja","title":"Dean, School of Business","organization":"Kyambogo University",
+                         {"name":"Dr. Beatrice Nampijja","title":"Dean, School of Business","organisation":"Kyambogo University",
                           "phone":"+256 414 287 100","email":"b.nampijja@kyu.ac.ug"}]
                         """,
                         """
