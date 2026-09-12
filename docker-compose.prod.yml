@@ -9,7 +9,7 @@ services:
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-caa_recruitment}
       POSTGRES_USER: ${POSTGRES_USER:-caa}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-caa}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-${POSTGRES_PASSWORD:-caa}}
     volumes:
       - caa-postgres-data:/var/lib/postgresql
     healthcheck:
@@ -34,7 +34,7 @@ services:
       SERVER_PORT: "8080"
       DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-caa_recruitment}
       DB_USERNAME: ${POSTGRES_USER:-caa}
-      DB_PASSWORD: ${POSTGRES_PASSWORD:-caa}
+      DB_PASSWORD: ${DB_PASSWORD:-${POSTGRES_PASSWORD:-caa}}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-*}
       JWT_SECRET: ${JWT_SECRET}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
@@ -56,7 +56,8 @@ services:
       OPENAPI_ENABLED: ${OPENAPI_ENABLED:-true}
       APP_UPLOAD_DIR: /app/uploads
     ports:
-      - "${APP_PORT:-8082}:8080"
+      # localhost only — public access via HTTPS (api.mukasamatthew.com) through NPM on caa-net
+      - "127.0.0.1:${APP_PORT:-8082}:8080"
     volumes:
       - caa-uploads:/app/uploads
     networks:
