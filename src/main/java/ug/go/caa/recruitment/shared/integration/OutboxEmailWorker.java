@@ -9,9 +9,17 @@ import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.util.HtmlUtils;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
+
+import static ug.go.caa.recruitment.shared.integration.RecruitmentEmailTemplate.escape;
+import static ug.go.caa.recruitment.shared.integration.RecruitmentEmailTemplate.greeting;
+import static ug.go.caa.recruitment.shared.integration.RecruitmentEmailTemplate.heading;
+import static ug.go.caa.recruitment.shared.integration.RecruitmentEmailTemplate.layout;
+import static ug.go.caa.recruitment.shared.integration.RecruitmentEmailTemplate.mutedNote;
+import static ug.go.caa.recruitment.shared.integration.RecruitmentEmailTemplate.paragraph;
+import static ug.go.caa.recruitment.shared.integration.RecruitmentEmailTemplate.primaryButton;
+import static ug.go.caa.recruitment.shared.integration.RecruitmentEmailTemplate.wrapCustomBody;
 
 @Component
 public class OutboxEmailWorker {
@@ -101,60 +109,114 @@ public class OutboxEmailWorker {
 
     private MailContent content(String eventType, JsonNode payload) {
         String to = recipient(payload);
-        String firstName = firstName(payload);
+        String firstName = firstNameRaw(payload);
+        String portal = properties.frontendUrl();
         return switch (eventType) {
             case "identity.welcome-requested" -> new MailContent(
                     to,
-                    "Welcome to CAA Recruitment",
-                    "<p>Hello " + firstName + ",</p><p>Welcome to the CAA recruitment portal.</p>");
+                    "Welcome to UCAA e-Recruitment",
+                    layout(
+                            "Welcome to the UCAA recruitment portal",
+                            greeting(firstName)
+                                    + paragraph(
+                                            "Your account is ready. You can sign in to browse vacancies, "
+                                                    + "build your candidate profile, and track applications in one place.")
+                                    + primaryButton("Open recruitment portal", portal)));
             case "identity.email-verification-requested" -> {
-                String link = properties.frontendUrl() + "/verify-email?token=" + text(payload, "token", "");
+                String link = portal + "/verify-email?token=" + text(payload, "token", "");
                 yield new MailContent(
                         to,
-                        "Verify your email address",
-                        "<p>Hello " + firstName + ",</p><p><a href=\"" + escape(link)
-                                + "\">Verify your email address</a></p>");
+                        "Verify your email address — UCAA Recruitment",
+                        layout(
+                                "Confirm your email to receive application updates",
+                                greeting(firstName)
+                                        + paragraph(
+                                                "Please confirm your email address so we can send you "
+                                                        + "application updates and interview notifications.")
+                                        + primaryButton("Verify email address", link)
+                                        + mutedNote(
+                                                "This link works once. If it expires, sign in to the portal "
+                                                        + "and use Resend verification link.")));
             }
             case "identity.password-reset-requested" -> {
-                String link = properties.frontendUrl() + "/reset-password?token=" + text(payload, "token", "");
+                String link = portal + "/reset-password?token=" + text(payload, "token", "");
                 yield new MailContent(
                         to,
-                        "Reset your password",
-                        "<p>Hello " + firstName + ",</p><p><a href=\"" + escape(link)
-                                + "\">Reset your password</a></p>");
+                        "Reset your password — UCAA Recruitment",
+                        layout(
+                                "Reset your recruitment portal password",
+                                greeting(firstName)
+                                        + paragraph(
+                                                "We received a request to reset your password. "
+                                                        + "Use the button below to choose a new password.")
+                                        + primaryButton("Reset password", link)
+                                        + mutedNote(
+                                                "If you did not request this, you can ignore this email. "
+                                                        + "The link expires after one hour.")));
             }
             case "email.custom-requested", "email.delivery-requested" -> new MailContent(
-                    to, text(payload, "subject", ""), text(payload, "body", ""));
+                    to,
+                    text(payload, "subject", "Message from UCAA HR"),
+                    layout(
+                            text(payload, "subject", "Message from UCAA HR"),
+                            wrapCustomBody(text(payload, "body", ""))));
             case "application.status-notification-requested" -> new MailContent(
                     to,
-                    "Application Update — " + text(payload, "jobTitle", ""),
-                    text(payload, "message", ""));
+                    "Application update — " + text(payload, "jobTitle", "Vacancy"),
+                    layout(
+                            "Update on your job application",
+                            greeting(firstName)
+                                    + heading(text(payload, "jobTitle", "Your application"))
+                                    + wrapCustomBody(text(payload, "message", ""))
+                                    + primaryButton("View your dashboard", portal + "/dashboard")));
             case "application.intern-acceptance-requested" -> new MailContent(
                     to,
-                    "Welcome to the CAA Internship Program — " + text(payload, "jobTitle", ""),
-                    "<p>Dear " + firstName + ",</p><p>Congratulations on your offer for the position of "
-                            + escape(text(payload, "jobTitle", "")) + " at the Uganda Civil Aviation Authority! "
-                            + "We are excited to have you join the team.</p><p>A formal offer letter with your "
-                            + "terms and conditions will follow separately. Please log in to the UCAA "
-                            + "e-Recruitment Portal for further details.</p>");
+                    "Internship offer — " + text(payload, "jobTitle", "UCAA"),
+                    layout(
+                            "Congratulations on your internship offer",
+                            greeting(firstName)
+                                    + paragraph(
+                                            "Congratulations on your offer for the position of <strong>"
+                                                    + escape(text(payload, "jobTitle", ""))
+                                                    + "</strong> at the Uganda Civil Aviation Authority. "
+                                                    + "We are pleased to welcome you to the team.")
+                                    + paragraph(
+                                            "A formal offer letter with your terms and conditions will follow "
+                                                    + "separately. Please sign in to the portal for next steps.")
+                                    + primaryButton("Open recruitment portal", portal)));
             case "job.submitted-for-review" -> new MailContent(
                     to,
-                    "Job submitted for department review — " + text(payload, "jobTitle", ""),
-                    "<p>Your job listing <strong>" + escape(text(payload, "jobTitle", ""))
-                            + "</strong> has been submitted for department review by "
-                            + escape(text(payload, "submittedBy", "HR")) + ".</p>");
+                    "Job submitted for review — " + text(payload, "jobTitle", ""),
+                    layout(
+                            "Your job listing was submitted for department review",
+                            paragraph(
+                                    "Your listing <strong>" + escape(text(payload, "jobTitle", ""))
+                                            + "</strong> has been submitted for department review by "
+                                            + escape(text(payload, "submittedBy", "HR"))
+                                            + ".")
+                                    + mutedNote("You will receive another notification when review is complete.")));
             case "job.pending-final-approval" -> new MailContent(
                     to,
                     "Job awaiting final approval — " + text(payload, "jobTitle", ""),
-                    "<p>Your job listing <strong>" + escape(text(payload, "jobTitle", ""))
-                            + "</strong> passed department review and is awaiting final HR approval (reviewed by "
-                            + escape(text(payload, "reviewedBy", "HOD")) + ").</p>");
+                    layout(
+                            "Job listing passed department review",
+                            paragraph(
+                                    "Your listing <strong>" + escape(text(payload, "jobTitle", ""))
+                                            + "</strong> passed department review and is awaiting final HR approval "
+                                            + "(reviewed by " + escape(text(payload, "reviewedBy", "HOD")) + ").")));
             case "job.declined" -> new MailContent(
                     to,
                     "Job listing declined — " + text(payload, "jobTitle", ""),
-                    "<p>Your job listing <strong>" + escape(text(payload, "jobTitle", ""))
-                            + "</strong> was declined at " + escape(text(payload, "stage", "review"))
-                            + ".</p><p>Reason: " + escape(text(payload, "reason", "")) + "</p>");
+                    layout(
+                            "Job listing was declined",
+                            paragraph(
+                                    "Your listing <strong>" + escape(text(payload, "jobTitle", ""))
+                                            + "</strong> was declined at the "
+                                            + escape(text(payload, "stage", "review"))
+                                            + " stage.")
+                                    + paragraph(
+                                            "<strong>Reason:</strong> "
+                                                    + escape(text(payload, "reason", "No reason provided.")))));
             default -> throw new IllegalArgumentException("Unsupported email event " + eventType);
         };
     }
@@ -171,14 +233,14 @@ public class OutboxEmailWorker {
         return emailForJobCreator(payload);
     }
 
-    private String firstName(JsonNode payload) {
+    private String firstNameRaw(JsonNode payload) {
         String explicit = text(payload, "firstName", null);
         if (explicit != null && !explicit.isBlank()) {
-            return escape(explicit);
+            return explicit;
         }
         String full = text(payload, "candidateName", "Applicant");
         int space = full.indexOf(' ');
-        return escape(space > 0 ? full.substring(0, space) : full);
+        return space > 0 ? full.substring(0, space) : full;
     }
 
     private String emailForJobCreator(JsonNode payload) {
@@ -227,10 +289,6 @@ public class OutboxEmailWorker {
     private static String text(JsonNode payload, String field, String fallback) {
         JsonNode value = payload.get(field);
         return value == null || value.isNull() ? fallback : value.asText();
-    }
-
-    private static String escape(String value) {
-        return HtmlUtils.htmlEscape(value == null ? "" : value);
     }
 
     private static String truncate(String value, int max) {

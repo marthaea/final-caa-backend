@@ -15,7 +15,7 @@ TOKEN="$(curl -sS -X POST "$API/api/auth/login" \
 curl -sS -X POST "$API/api/emails" \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
-  -d "{\"to\":\"$TO\",\"candidateName\":\"Matthew\",\"subject\":\"CAA recruitment – Brevo test\",\"body\":\"<p>Test from Thewton-Server API. If you received this, Brevo SMTP is working.</p>\",\"trigger\":\"brevo-test\",\"jobTitle\":\"SMTP verification\"}"
+  -d "{\"to\":\"$TO\",\"candidateName\":\"Matthew\",\"subject\":\"UCAA Recruitment — email design test\",\"body\":\"This is a test of the professional UCAA email layout. If the header, button styling, and footer look correct, transactional mail is ready.\",\"trigger\":\"brevo-test\",\"jobTitle\":\"SMTP verification\"}"
 
 echo
 echo "Queued. Waiting for outbox worker…"
