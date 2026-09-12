@@ -150,6 +150,7 @@ public class IdentityService {
 
     @Transactional
     public ProfileResponse updateProfile(long userId, String firstName, String lastName, String email) {
+        UserAccount before = requireUser(userId);
         String normalizedEmail = email == null ? null : normalizeEmail(email);
         if (normalizedEmail != null) {
             repository.findUserByEmail(normalizedEmail)
@@ -157,6 +158,17 @@ public class IdentityService {
                     .ifPresent(existing -> {
                         throw new ApiException(HttpStatus.CONFLICT, "Email already taken");
                     });
+        }
+        boolean emailChanged = normalizedEmail != null
+                && !normalizedEmail.equalsIgnoreCase(before.email());
+        if (emailChanged) {
+            String verificationToken = randomToken();
+            repository.updateProfileWithNewEmail(
+                    userId, trimToNull(firstName), trimToNull(lastName), normalizedEmail, verificationToken);
+            UserAccount user = requireUser(userId);
+            events.emailVerificationRequested(user.id(), user.email(), user.firstName(), verificationToken);
+            return new ProfileResponse(
+                    user.id(), user.email(), user.firstName(), user.lastName(), user.accountType());
         }
         repository.updateProfile(userId, trimToNull(firstName), trimToNull(lastName), normalizedEmail);
         UserAccount user = requireUser(userId);

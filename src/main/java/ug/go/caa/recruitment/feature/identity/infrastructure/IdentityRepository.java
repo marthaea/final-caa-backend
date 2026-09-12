@@ -105,6 +105,26 @@ public class IdentityRepository {
                 .update();
     }
 
+    public void updateProfileWithNewEmail(
+            long userId, String firstName, String lastName, String email, String verificationToken) {
+        jdbc.sql("""
+                UPDATE users SET
+                    first_name = COALESCE(:firstName, first_name),
+                    last_name = COALESCE(:lastName, last_name),
+                    email = lower(:email),
+                    email_verified = false,
+                    verify_token = :verificationToken,
+                    updated_at = now()
+                WHERE id = :id
+                """)
+                .param("firstName", firstName)
+                .param("lastName", lastName)
+                .param("email", email)
+                .param("verificationToken", verificationToken)
+                .param("id", userId)
+                .update();
+    }
+
     public void setPasswordReset(long userId, String tokenHash, Instant expiresAt) {
         jdbc.sql("""
                 UPDATE users SET reset_token_hash = :tokenHash,

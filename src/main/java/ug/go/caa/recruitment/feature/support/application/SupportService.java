@@ -177,7 +177,7 @@ public class SupportService {
             String query,
             String sessionId
     ) {
-        if (!ANALYTICS_TYPES.contains(type)) {
+        if (type == null || type.isBlank() || !ANALYTICS_TYPES.contains(type)) {
             throw new ApiException(HttpStatus.BAD_REQUEST,
                     "type must be one of: page_view, job_view, apply_click, save_job, search");
         }

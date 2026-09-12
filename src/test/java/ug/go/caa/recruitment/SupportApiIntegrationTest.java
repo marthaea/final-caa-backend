@@ -198,6 +198,12 @@ class SupportApiIntegrationTest {
                         .content("{\"type\":\"search\",\"query\":\"engineering\"}"))
                 .andExpect(status().isCreated());
 
+        mvc.perform(post("/api/analytics/event")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false));
+
         mvc.perform(get("/api/analytics")
                         .header(HttpHeaders.AUTHORIZATION, bearer(superToken))
                         .param("days", "999"))

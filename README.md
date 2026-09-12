@@ -95,3 +95,7 @@ curl -s -X POST http://localhost:8080/api/auth/login \
 ## Schema
 
 - `V1__baseline_schema.sql` / `V2__api_rate_limits.sql` under `src/main/resources/db/migration/`
+
+## API rate limits
+
+Auth and sensitive POST endpoints are limited per client IP (`ApiRateLimitFilter`). **Do not** bulk-delete `api_rate_limits` in production; wait for the sliding window or let the daily cleanup job remove stale rows. See the frontend `docs/DEPLOYMENT-RUNBOOK.md` for limits and 429 handling.
