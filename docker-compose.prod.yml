@@ -30,17 +30,17 @@ services:
       postgres:
         condition: service_healthy
     environment:
-      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-prod}
+      SPRING_PROFILES_ACTIVE: prod
       SERVER_PORT: "8080"
       DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-caa_recruitment}
       DB_USERNAME: ${POSTGRES_USER:-caa}
       DB_PASSWORD: ${DB_PASSWORD:-${POSTGRES_PASSWORD:-caa}}
-      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-*}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-https://recruitfront.netlify.app}
       JWT_SECRET: ${JWT_SECRET}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
-      AUTH_COOKIE_SECURE: ${AUTH_COOKIE_SECURE:-false}
-      AUTH_COOKIE_SAME_SITE: ${AUTH_COOKIE_SAME_SITE:-Lax}
-      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:8081}
+      AUTH_COOKIE_SECURE: ${AUTH_COOKIE_SECURE:-true}
+      AUTH_COOKIE_SAME_SITE: ${AUTH_COOKIE_SAME_SITE:-None}
+      FRONTEND_URL: ${FRONTEND_URL:-https://recruitfront.netlify.app}
       SMTP_ENABLED: ${SMTP_ENABLED:-false}
       SMTP_HOST: ${SMTP_HOST:-smtp-relay.brevo.com}
       SMTP_PORT: ${SMTP_PORT:-587}
