@@ -6,6 +6,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -15,6 +16,8 @@ import ug.go.caa.recruitment.feature.recruitment.infrastructure.ApplicationRepos
 import ug.go.caa.recruitment.feature.recruitment.infrastructure.ApplicationRepository.ApplicationData;
 import ug.go.caa.recruitment.feature.recruitment.infrastructure.ApplicationRepository.ScreeningCriteria;
 import ug.go.caa.recruitment.feature.recruitment.infrastructure.ApplicationRepository.StatusChange;
+import ug.go.caa.recruitment.feature.support.infrastructure.SupportRepository;
+import ug.go.caa.recruitment.feature.support.infrastructure.SupportRepository.SettingsData;
 import ug.go.caa.recruitment.shared.persistence.AuditWriter;
 import ug.go.caa.recruitment.shared.persistence.OutboxWriter;
 import ug.go.caa.recruitment.shared.security.AuthenticatedActor;
@@ -24,25 +27,45 @@ import ug.go.caa.recruitment.shared.web.ApiException;
 public class ApplicationService {
 
     private static final List<String> STATUSES =
-            List.of("Pending", "Under Review", "Shortlisted", "Interview", "Offered", "Declined");
+            List.of("Pending", "Under Review", "Shortlisted", "Shortlisted II", "Interview",
+                    "Assessment Scheduled", "Assessment Complete", "Offered", "Declined");
+    // Mirrors the frontend's NON_WITHDRAWABLE_STATUSES (AppContext.tsx) — once an
+    // application reaches any of these, editing/resubmitting is a hard stop.
+    private static final Set<String> EDIT_LOCKED_STATUSES = Set.of(
+            "Shortlisted", "Shortlisted II", "Interview", "Assessment Scheduled",
+            "Assessment Complete", "Offered");
     private static final DateTimeFormatter DISPLAY_DATE =
             DateTimeFormatter.ofPattern("MMM d, uuuu", Locale.US);
+    // Fallbacks for when no settings row exists yet — mirrors the seeded
+    // defaults so behavior is identical either way.
+    private static final Map<String, String> DEFAULT_TEMPLATES = Map.of(
+            "Shortlisted", "Dear {name}, we are pleased to inform you that your application for {role} "
+                    + "has been shortlisted. Our team will contact you with further instructions shortly.",
+            "Declined", "Dear {name}, thank you for applying for {role}. After careful review, we regret "
+                    + "to inform you that your application has not been successful at this stage.",
+            "Interview", "Dear {name}, congratulations! Your application for {role} has progressed to the "
+                    + "interview stage. Our HR team will contact you to confirm the date and time.",
+            "Offered", "Dear {name}, we are delighted to offer you the position of {role}. Please review "
+                    + "the attached offer letter and respond within five (5) working days.");
 
     private final ApplicationRepository repository;
     private final AuthorizationService authorization;
     private final AuditWriter audit;
     private final OutboxWriter outbox;
+    private final SupportRepository supportRepository;
 
     public ApplicationService(
             ApplicationRepository repository,
             AuthorizationService authorization,
             AuditWriter audit,
-            OutboxWriter outbox
+            OutboxWriter outbox,
+            SupportRepository supportRepository
     ) {
         this.repository = repository;
         this.authorization = authorization;
         this.audit = audit;
         this.outbox = outbox;
+        this.supportRepository = supportRepository;
     }
 
     public List<ApplicationResponse> find(
@@ -106,8 +129,26 @@ public class ApplicationService {
             }
             throw bad("This vacancy is no longer accepting applications");
         }
-        if (repository.duplicate(command.jobId(), actor.email())) {
-            throw new ApiException(HttpStatus.CONFLICT, "You have already applied for this position");
+        // Previously any existing row (any status) blocked resubmission outright,
+        // and the frontend's silent .catch() on that 409 meant a candidate editing
+        // an already-submitted application saw a false "success" toast while
+        // nothing was actually saved. Now: still-editable applications are
+        // updated in place; anything at Shortlisted or later is a real, clearly
+        // messaged hard stop instead of a silently-swallowed error.
+        var existing = repository.findByJobAndEmail(command.jobId(), actor.email());
+        if (existing.isPresent()) {
+            String currentStatus = existing.get().status();
+            if (EDIT_LOCKED_STATUSES.contains(currentStatus)) {
+                throw new ApiException(HttpStatus.CONFLICT,
+                        "Your application has already progressed to " + currentStatus
+                                + " and can no longer be edited. Contact HR if you need to make a change.");
+            }
+            boolean stillEligible = repository.criteria(command.jobId())
+                    .map(criteria -> !fails(criteria, command)).orElse(true);
+            String nextStatus = stillEligible ? currentStatus : "Declined";
+            return response(repository.updateSubmission(
+                    existing.get().id(), command.completion(), command.cgpa(),
+                    emptyToNull(command.university()), command.screeningAnswers(), nextStatus));
         }
         int maximum = repository.applicationLimit();
         if (maximum > 0 && repository.activeCount(actor.email()) >= maximum) {
@@ -135,7 +176,22 @@ public class ApplicationService {
                 throw bad("Each update must have a valid id and status");
             }
         });
-        repository.updateStatuses(updates);
+        // Previously this only updated the `status` column — no email, no
+        // in-app notification, for any candidate, ever. Bulk is the primary
+        // path real shortlisting runs go through (hundreds of candidates at
+        // once), so this was the single biggest gap in "every decision
+        // notifies the candidate."
+        for (StatusChange update : updates) {
+            repository.updateStatus(update.id(), update.status());
+            repository.findById(update.id()).ifPresent(app -> {
+                notifyAutomatically(app, update.status());
+                if ("Offered".equals(update.status()) && app.cgpa() != null) {
+                    outbox.write("application", app.id(), "application.intern-acceptance-requested", Map.of(
+                            "applicationId", app.id(), "to", app.candidateEmail(),
+                            "candidateName", app.candidateName(), "jobTitle", app.title()));
+                }
+            });
+        }
         audit.write(actor, "Bulk status update (" + updates.size() + " applications)", null);
         return updates.size();
     }
@@ -174,6 +230,11 @@ public class ApplicationService {
                     "applicationId", id, "to", command.notifyEmail(),
                     "candidateName", app.candidateName(), "jobTitle", app.title(),
                     "status", command.status(), "message", command.notifyMessage()));
+        } else {
+            // No custom message supplied (e.g. a drag on the pipeline board) —
+            // still guarantee the candidate is notified, from the HR-editable
+            // template for this status.
+            notifyAutomatically(app, command.status());
         }
         if ("Offered".equals(command.status()) && app.cgpa() != null) {
             outbox.write("application", id, "application.intern-acceptance-requested", Map.of(
@@ -205,7 +266,7 @@ public class ApplicationService {
     public void withdraw(long id, AuthenticatedActor actor) {
         ApplicationData app = repository.findOwned(id, actor.email())
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Application not found"));
-        if (List.of("Shortlisted", "Interview", "Offered").contains(app.status())) {
+        if (EDIT_LOCKED_STATUSES.contains(app.status())) {
             throw bad("Cannot withdraw an application at this stage");
         }
         repository.delete(id);
@@ -257,6 +318,42 @@ public class ApplicationService {
             }
         }
         return true;
+    }
+
+    // Guaranteed notification path — fires for every notifiable status change
+    // regardless of whether HR supplied a custom message (bulk actions never
+    // do). Uses the HR-editable templates in Settings, falling back to the
+    // seeded defaults if no settings row exists.
+    private void notifyAutomatically(ApplicationData app, String status) {
+        String template = templateFor(status);
+        if (template == null || app.candidateEmail() == null || app.candidateEmail().isBlank()) {
+            return;
+        }
+        String message = template.replace("{name}", app.candidateName()).replace("{role}", app.title());
+        String notifType = switch (status) {
+            case "Shortlisted" -> "shortlisted";
+            case "Declined" -> "declined";
+            case "Interview" -> "interview";
+            case "Offered" -> "offered";
+            default -> "info";
+        };
+        repository.addNotification(app.candidateUserId(), app.candidateEmail(),
+                "Application status: " + status, message, notifType);
+        outbox.write("application", app.id(), "email.delivery-requested", Map.of(
+                "to", app.candidateEmail(), "candidateName", app.candidateName(),
+                "subject", "Application Update — " + app.title(), "body", message,
+                "trigger", status, "jobTitle", app.title()));
+    }
+
+    private String templateFor(String status) {
+        SettingsData settings = supportRepository.settings().orElse(null);
+        return switch (status) {
+            case "Shortlisted" -> settings != null ? settings.shortlist() : DEFAULT_TEMPLATES.get(status);
+            case "Declined" -> settings != null ? settings.decline() : DEFAULT_TEMPLATES.get(status);
+            case "Interview" -> settings != null ? settings.interview() : DEFAULT_TEMPLATES.get(status);
+            case "Offered" -> settings != null ? settings.offer() : DEFAULT_TEMPLATES.get(status);
+            default -> null;
+        };
     }
 
     private ApplicationData require(long id) {

@@ -7,6 +7,7 @@ import java.util.Set;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import tools.jackson.databind.JsonNode;
 import ug.go.caa.recruitment.feature.identity.application.AuthorizationService;
 import ug.go.caa.recruitment.feature.support.infrastructure.SupportRepository;
 import ug.go.caa.recruitment.feature.support.infrastructure.SupportRepository.AnalyticsEventData;
@@ -15,11 +16,13 @@ import ug.go.caa.recruitment.feature.support.infrastructure.SupportRepository.Ch
 import ug.go.caa.recruitment.feature.support.infrastructure.SupportRepository.DailyCount;
 import ug.go.caa.recruitment.feature.support.infrastructure.SupportRepository.EmailCommand;
 import ug.go.caa.recruitment.feature.support.infrastructure.SupportRepository.EmailData;
+import ug.go.caa.recruitment.feature.support.infrastructure.SupportRepository.EmailStatusData;
 import ug.go.caa.recruitment.feature.support.infrastructure.SupportRepository.NotificationData;
 import ug.go.caa.recruitment.feature.support.infrastructure.SupportRepository.SettingsData;
 import ug.go.caa.recruitment.feature.support.infrastructure.SupportRepository.SettingsPatch;
 import ug.go.caa.recruitment.feature.support.infrastructure.SupportRepository.TopJob;
 import ug.go.caa.recruitment.feature.support.infrastructure.SupportRepository.TopSearch;
+import ug.go.caa.recruitment.shared.integration.IntegrationProperties;
 import ug.go.caa.recruitment.shared.persistence.AuditWriter;
 import ug.go.caa.recruitment.shared.persistence.OutboxWriter;
 import ug.go.caa.recruitment.shared.security.AuthenticatedActor;
@@ -37,23 +40,26 @@ public class SupportService {
     private final AuthorizationService authorization;
     private final AuditWriter audit;
     private final OutboxWriter outbox;
+    private final IntegrationProperties integrations;
 
     public SupportService(
             SupportRepository repository,
             AuthorizationService authorization,
             AuditWriter audit,
-            OutboxWriter outbox
+            OutboxWriter outbox,
+            IntegrationProperties integrations
     ) {
         this.repository = repository;
         this.authorization = authorization;
         this.audit = audit;
         this.outbox = outbox;
+        this.integrations = integrations;
     }
 
     public SettingsResponse settings() {
         SettingsData data = repository.settings().orElse(new SettingsData(
                 "Uganda Civil Aviation Authority", "CAA HR Team", 21, false,
-                30, 7, 5, null, null, null, null));
+                30, 7, 5, null, null, null, null, new java.math.BigDecimal("3.8"), null, null));
         return settingsResponse(data);
     }
 
@@ -69,9 +75,26 @@ public class SupportService {
                 templates == null ? null : templates.shortlist(),
                 templates == null ? null : templates.decline(),
                 templates == null ? null : templates.interview(),
-                templates == null ? null : templates.offer()));
+                templates == null ? null : templates.offer(),
+                command.defaultCgpaThreshold(),
+                templates == null ? null : templates.assessmentScheduled(),
+                templates == null ? null : templates.panelInvite()));
         audit.write(actor, "Updated portal settings", null);
         return settingsResponse(updated);
+    }
+
+    // Settings → "Email delivery" indicator: SMTP_ENABLED was previously an
+    // env var with no visibility from the admin UI at all, so HR had no way
+    // to self-diagnose "why didn't this candidate get an email" without
+    // asking a developer to check the .env file.
+    public EmailStatusResponse emailStatus(AuthenticatedActor actor) {
+        boolean canView = authorization.hasPermission(actor, "canManageSettings")
+                || authorization.hasPermission(actor, "canSendNotifications");
+        if (!canView) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "Permission denied");
+        }
+        EmailStatusData data = repository.emailStatus();
+        return new EmailStatusResponse(integrations.mail().enabled(), data.pending(), data.failing(), data.lastSentAt());
     }
 
     public List<NotificationData> notifications(AuthenticatedActor actor) {
@@ -126,7 +149,14 @@ public class SupportService {
     }
 
     public List<AuditData> audits(AuthenticatedActor actor, String search, Integer limit) {
-        authorization.requirePermission(actor, "canViewAudit");
+        // canViewAudit alone would exclude hr_officer/hr/recruiter — the roles
+        // that actually run shortlisting and need to see their own
+        // accountability trail in Shortlisting Reports, not just auditors.
+        boolean canView = authorization.hasPermission(actor, "canViewAudit")
+                || authorization.hasPermission(actor, "canShortlist");
+        if (!canView) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "Permission denied");
+        }
         return repository.audits(search, cap(limit, 200, 1000));
     }
 
@@ -134,13 +164,18 @@ public class SupportService {
     public AuditData createAudit(
             AuthenticatedActor actor,
             String action,
-            String target
+            String target,
+            JsonNode metadata
     ) {
-        authorization.requireRole(actor, "super", "hr", "recruiter");
+        // Previously a hardcoded role allowlist ("super","hr","recruiter") that
+        // silently excluded hr_officer/dhra/hod — every role that can actually
+        // run shortlisting (and so is the one writing these audit entries) —
+        // meaning most shortlisting-run audit writes would have been rejected.
+        authorization.requirePermission(actor, "canShortlist");
         if (blank(action)) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "action is required");
         }
-        return repository.insertAudit(actor.id(), actor.displayName(), actor.adminRole(), action, target);
+        return repository.insertAudit(actor.id(), actor.displayName(), actor.adminRole(), action, target, metadata);
     }
 
     public void recordAnalytics(
@@ -158,7 +193,14 @@ public class SupportService {
     }
 
     public AnalyticsResponse analytics(AuthenticatedActor actor, Integer days) {
-        authorization.requirePermission(actor, "canViewAudit");
+        // canViewAudit alone would exclude hr_officer/hr/recruiter, same gap
+        // already fixed for audits() above — those roles run recruitment day
+        // to day and need to see site traffic, not just auditors.
+        boolean canView = authorization.hasPermission(actor, "canViewAudit")
+                || authorization.hasPermission(actor, "canShortlist");
+        if (!canView) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "Permission denied");
+        }
         int requestedDays = cap(days, 30, 365);
         List<AnalyticsEventData> events = repository.analyticsEvents(requestedDays);
         Map<String, Long> counts = new HashMap<>();
@@ -169,8 +211,11 @@ public class SupportService {
                 counts.getOrDefault("apply_click", 0L),
                 counts.getOrDefault("search", 0L),
                 counts.getOrDefault("save_job", 0L));
-        List<TopJob> topJobs = repository.topJobs();
-        List<TopSearch> topSearches = repository.topSearches();
+        // Top jobs/searches are shown to HR as a 30-day view (unlike the 7-day
+        // summary cards and daily chart) — use the same window the caller asked
+        // for instead of a second hardcoded 7 days, so the numbers match the label.
+        List<TopJob> topJobs = repository.topJobs(requestedDays);
+        List<TopSearch> topSearches = repository.topSearches(requestedDays);
         List<DailyCount> dailyCounts = repository.dailyCounts();
         return new AnalyticsResponse(events, summary, topJobs, topSearches, dailyCounts);
     }
@@ -179,7 +224,8 @@ public class SupportService {
             String query,
             String matchedQuestion,
             String outcome,
-            String persona
+            String persona,
+            Integer confidence
     ) {
         if (blank(query)) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "query is required");
@@ -191,7 +237,8 @@ public class SupportService {
                 truncate(query, 500),
                 blank(matchedQuestion) ? null : truncate(matchedQuestion, 255),
                 outcome,
-                blank(persona) ? "guest" : truncate(persona, 20));
+                blank(persona) ? "guest" : truncate(persona, 20),
+                confidence);
     }
 
     public List<ChatbotData> chatbot(
@@ -200,8 +247,19 @@ public class SupportService {
             Integer days,
             Integer limit
     ) {
-        authorization.requirePermission(actor, "canViewAudit");
-        String filter = CHATBOT_OUTCOMES.contains(outcome) ? outcome : null;
+        // Same canViewAudit-only gap as analytics()/audits() above — Martha's
+        // question log is shown inside the Site Analytics tab, so whoever can
+        // see that page must be able to load this too.
+        boolean canView = authorization.hasPermission(actor, "canViewAudit")
+                || authorization.hasPermission(actor, "canShortlist");
+        if (!canView) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "Permission denied");
+        }
+        // Set.of(...).contains(null) throws NPE rather than returning false —
+        // and the caller's normal case (no outcome filter, "show everything")
+        // is exactly the null case, so every unfiltered call to this endpoint
+        // was a 500. The frontend's Martha panel never actually loaded.
+        String filter = outcome != null && CHATBOT_OUTCOMES.contains(outcome) ? outcome : null;
         return repository.chatbot(filter, cap(days, 30, 365), cap(limit, 200, 1000));
     }
 
@@ -221,7 +279,9 @@ public class SupportService {
                 data.orgName(), data.emailSenderName(), data.minAgeThreshold(),
                 data.allowExternalInternalJobs(), data.sessionTimeoutMinutes(),
                 data.closingSoonDays(), data.maxApplicationsPerCandidate(),
-                new TemplateResponse(data.shortlist(), data.decline(), data.interview(), data.offer()));
+                new TemplateResponse(data.shortlist(), data.decline(), data.interview(), data.offer(),
+                        data.assessmentScheduled(), data.panelInvite()),
+                data.defaultCgpaThreshold());
     }
 
     private static void validateSettings(SettingsCommand command) {
@@ -229,7 +289,10 @@ public class SupportService {
                 || command.sessionTimeoutMinutes() != null && command.sessionTimeoutMinutes() <= 0
                 || command.closingSoonDays() != null && command.closingSoonDays() < 0
                 || command.maxApplicationsPerCandidate() != null
-                        && command.maxApplicationsPerCandidate() <= 0) {
+                        && command.maxApplicationsPerCandidate() <= 0
+                || command.defaultCgpaThreshold() != null
+                        && (command.defaultCgpaThreshold().signum() < 0
+                                || command.defaultCgpaThreshold().compareTo(new java.math.BigDecimal("5")) > 0)) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Invalid settings values");
         }
     }
@@ -256,18 +319,25 @@ public class SupportService {
 
     public record SettingsCommand(String orgName, String emailSenderName, Integer minAgeThreshold,
             Boolean allowExternalInternalJobs, Integer sessionTimeoutMinutes, Integer closingSoonDays,
-            Integer maxApplicationsPerCandidate, TemplateCommand notifTemplates) {
+            Integer maxApplicationsPerCandidate, TemplateCommand notifTemplates,
+            java.math.BigDecimal defaultCgpaThreshold) {
     }
 
-    public record TemplateCommand(String shortlist, String decline, String interview, String offer) {
+    public record TemplateCommand(String shortlist, String decline, String interview, String offer,
+            String assessmentScheduled, String panelInvite) {
     }
 
     public record SettingsResponse(String orgName, String emailSenderName, int minAgeThreshold,
             boolean allowExternalInternalJobs, int sessionTimeoutMinutes, int closingSoonDays,
-            int maxApplicationsPerCandidate, TemplateResponse notifTemplates) {
+            int maxApplicationsPerCandidate, TemplateResponse notifTemplates,
+            java.math.BigDecimal defaultCgpaThreshold) {
     }
 
-    public record TemplateResponse(String shortlist, String decline, String interview, String offer) {
+    public record TemplateResponse(String shortlist, String decline, String interview, String offer,
+            String assessmentScheduled, String panelInvite) {
+    }
+
+    public record EmailStatusResponse(boolean enabled, int pending, int failing, java.time.Instant lastSentAt) {
     }
 
     public record AnalyticsSummary(long pageViews7, long jobViews7, long applyClicks7,

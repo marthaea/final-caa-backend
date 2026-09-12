@@ -121,6 +121,33 @@ public class ApplicationRepository {
                 .param("jobId", jobId).param("email", email).query(Boolean.class).single();
     }
 
+    public Optional<ApplicationData> findByJobAndEmail(long jobId, String email) {
+        return jdbc.sql("""
+                SELECT * FROM applications
+                WHERE job_id = :jobId AND lower(candidate_email) = lower(:email)
+                """)
+                .param("jobId", jobId).param("email", email).query(this::map).optional();
+    }
+
+    // Editing a still-Pending/Under-Review application updates the same row in
+    // place rather than creating a second one — job_id/candidate identity/date
+    // are left untouched, only the submission content and (possibly) status change.
+    public ApplicationData updateSubmission(
+            long id, int completion, BigDecimal cgpa, String university, JsonNode answers, String status
+    ) {
+        jdbc.sql("""
+                UPDATE applications SET
+                    completion = :completion, cgpa = :cgpa, university = :university,
+                    screening_answers = CAST(:answers AS jsonb), status = :status, updated_at = now()
+                WHERE id = :id
+                """)
+                .param("completion", completion).param("cgpa", cgpa).param("university", university)
+                .param("answers", answers == null ? null : answers.toString())
+                .param("status", status).param("id", id)
+                .update();
+        return findById(id).orElseThrow();
+    }
+
     public int activeCount(String email) {
         return jdbc.sql("""
                 SELECT count(*) FROM applications

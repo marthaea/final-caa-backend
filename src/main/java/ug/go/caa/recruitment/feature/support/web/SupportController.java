@@ -16,8 +16,10 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import tools.jackson.databind.JsonNode;
 import ug.go.caa.recruitment.feature.support.application.SupportService;
 import ug.go.caa.recruitment.feature.support.application.SupportService.AnalyticsResponse;
+import ug.go.caa.recruitment.feature.support.application.SupportService.EmailStatusResponse;
 import ug.go.caa.recruitment.feature.support.application.SupportService.SettingsCommand;
 import ug.go.caa.recruitment.feature.support.application.SupportService.SettingsResponse;
 import ug.go.caa.recruitment.feature.support.application.SupportService.TemplateCommand;
@@ -51,6 +53,11 @@ public class SupportController {
     ) {
         return ApiResponse.success(support.updateSettings(
                 AuthenticatedActor.from(jwt), request.command()));
+    }
+
+    @GetMapping("/settings/email-status")
+    ApiResponse<EmailStatusResponse> emailStatus(@AuthenticationPrincipal Jwt jwt) {
+        return ApiResponse.success(support.emailStatus(AuthenticatedActor.from(jwt)));
     }
 
     @GetMapping("/notifications")
@@ -124,7 +131,7 @@ public class SupportController {
             @RequestBody AuditRequest request
     ) {
         return ApiResponse.success(support.createAudit(
-                AuthenticatedActor.from(jwt), request.action(), request.target()));
+                AuthenticatedActor.from(jwt), request.action(), request.target(), request.metadata()));
     }
 
     @PostMapping("/analytics/event")
@@ -150,7 +157,8 @@ public class SupportController {
     @ResponseStatus(HttpStatus.CREATED)
     ApiResponse<Map<String, Boolean>> recordChatbot(@RequestBody ChatbotRequest request) {
         support.recordChatbot(
-                request.query(), request.matchedQuestion(), request.outcome(), request.persona());
+                request.query(), request.matchedQuestion(), request.outcome(), request.persona(),
+                request.confidence());
         return ApiResponse.success(Map.of("logged", true));
     }
 
@@ -174,19 +182,21 @@ public class SupportController {
             Integer sessionTimeoutMinutes,
             Integer closingSoonDays,
             Integer maxApplicationsPerCandidate,
-            TemplateRequest notifTemplates
+            TemplateRequest notifTemplates,
+            java.math.BigDecimal defaultCgpaThreshold
     ) {
         SettingsCommand command() {
             return new SettingsCommand(
                     orgName, emailSenderName, minAgeThreshold, allowExternalInternalJobs,
                     sessionTimeoutMinutes, closingSoonDays, maxApplicationsPerCandidate,
-                    notifTemplates == null ? null : notifTemplates.command());
+                    notifTemplates == null ? null : notifTemplates.command(), defaultCgpaThreshold);
         }
     }
 
-    record TemplateRequest(String shortlist, String decline, String interview, String offer) {
+    record TemplateRequest(String shortlist, String decline, String interview, String offer,
+            String assessmentScheduled, String panelInvite) {
         TemplateCommand command() {
-            return new TemplateCommand(shortlist, decline, interview, offer);
+            return new TemplateCommand(shortlist, decline, interview, offer, assessmentScheduled, panelInvite);
         }
     }
 
@@ -206,13 +216,13 @@ public class SupportController {
     record BulkEmailRequest(List<EmailRequest> emails) {
     }
 
-    record AuditRequest(String action, String target) {
+    record AuditRequest(String action, String target, JsonNode metadata) {
     }
 
     record AnalyticsEventRequest(String type, Long jobId, String jobTitle, String query) {
     }
 
-    record ChatbotRequest(String query, String matchedQuestion, String outcome, String persona) {
+    record ChatbotRequest(String query, String matchedQuestion, String outcome, String persona, Integer confidence) {
     }
 
 }

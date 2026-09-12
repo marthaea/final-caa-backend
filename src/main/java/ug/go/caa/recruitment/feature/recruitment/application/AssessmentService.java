@@ -3,16 +3,23 @@ package ug.go.caa.recruitment.feature.recruitment.application;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeParseException;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.databind.JsonNode;
 import ug.go.caa.recruitment.feature.identity.application.AuthorizationService;
 import ug.go.caa.recruitment.feature.recruitment.infrastructure.AssessmentRepository;
+import ug.go.caa.recruitment.feature.recruitment.infrastructure.AssessmentRepository.ApplicationSummary;
 import ug.go.caa.recruitment.feature.recruitment.infrastructure.AssessmentRepository.AssessmentData;
 import ug.go.caa.recruitment.feature.recruitment.infrastructure.AssessmentRepository.AssessmentWrite;
+import ug.go.caa.recruitment.feature.support.infrastructure.SupportRepository;
 import ug.go.caa.recruitment.shared.persistence.AuditWriter;
+import ug.go.caa.recruitment.shared.persistence.OutboxWriter;
 import ug.go.caa.recruitment.shared.security.AuthenticatedActor;
 import ug.go.caa.recruitment.shared.web.ApiException;
 
@@ -21,19 +28,43 @@ public class AssessmentService {
 
     private static final List<String> TYPES =
             List.of("written", "psychometric", "interview", "practical");
+    // Scheduling an assessment can now be the direct next step straight from
+    // either shortlisting stage — previously only "Interview" qualified,
+    // which meant a candidate had to be manually advanced to Interview first
+    // before the Assessment Schedule tab would even recognise them.
+    private static final Set<String> ASSESSABLE_STATUSES =
+            Set.of("Shortlisted", "Shortlisted II", "Interview");
+    private static final Map<String, String> TYPE_LABELS = Map.of(
+            "written", "Written", "psychometric", "Psychometric",
+            "interview", "Interview", "practical", "Practical");
+    private static final DateTimeFormatter NOTIFY_FORMAT =
+            DateTimeFormatter.ofPattern("EEEE, MMMM d, uuuu 'at' h:mm a", Locale.US);
+
+    private static final String DEFAULT_SCHEDULED_TEMPLATE =
+            "Dear {name},\n\nYour {type} assessment for the position of {role} at the Uganda Civil "
+                    + "Aviation Authority has been scheduled for {when}.{venueLine}\n\nPlease log in to "
+                    + "the UCAA e-Recruitment Portal for further details, and come prepared as "
+                    + "instructed.\n\nYours sincerely,\nHuman Resources Department\n"
+                    + "Uganda Civil Aviation Authority";
 
     private final AssessmentRepository repository;
     private final AuthorizationService authorization;
     private final AuditWriter audit;
+    private final OutboxWriter outbox;
+    private final SupportRepository supportRepository;
 
     public AssessmentService(
             AssessmentRepository repository,
             AuthorizationService authorization,
-            AuditWriter audit
+            AuditWriter audit,
+            OutboxWriter outbox,
+            SupportRepository supportRepository
     ) {
         this.repository = repository;
         this.authorization = authorization;
         this.audit = audit;
+        this.outbox = outbox;
+        this.supportRepository = supportRepository;
     }
 
     public List<AssessmentReport> findAll(AuthenticatedActor actor) {
@@ -101,7 +132,7 @@ public class AssessmentService {
         AssessmentData saved = repository.save(new AssessmentWrite(
                 applicationId, type, scheduledAt, venue, scheduledBy,
                 score, passed, notes, recordedBy));
-        if (scheduleTouched && "Interview".equals(app.status())) {
+        if (scheduleTouched && ASSESSABLE_STATUSES.contains(app.status())) {
             repository.updateApplicationStatus(applicationId, "Assessment Scheduled");
         }
         if (recordTouched && repository.allScheduledRecorded(applicationId)
@@ -110,7 +141,40 @@ public class AssessmentService {
         }
         audit.write(actor, "Updated " + type + " assessment",
                 app.candidateName() + " — " + app.title());
+        if (scheduleTouched) {
+            notifyScheduled(app, type, scheduledAt, venue);
+        }
         return response(saved);
+    }
+
+    // Previously nothing notified the candidate when an assessment was
+    // scheduled or rescheduled — HR had to remember to tell them manually.
+    private void notifyScheduled(
+            ApplicationSummary app, String type, OffsetDateTime scheduledAt, String venue
+    ) {
+        if (app.candidateEmail() == null || app.candidateEmail().isBlank() || scheduledAt == null) {
+            return;
+        }
+        String typeLabel = TYPE_LABELS.getOrDefault(type, type);
+        String when = NOTIFY_FORMAT.format(scheduledAt);
+        String venueLine = venue != null && !venue.isBlank() ? " The venue is " + venue + "." : "";
+        String template = supportRepository.settings()
+                .map(SupportRepository.SettingsData::assessmentScheduled)
+                .filter(t -> t != null && !t.isBlank())
+                .orElse(DEFAULT_SCHEDULED_TEMPLATE);
+        String body = template
+                .replace("{name}", app.candidateName())
+                .replace("{role}", app.title())
+                .replace("{type}", typeLabel)
+                .replace("{when}", when)
+                .replace("{venueLine}", venueLine);
+        outbox.write("assessments", app.id(), "email.delivery-requested", Map.of(
+                "to", app.candidateEmail(),
+                "candidateName", app.candidateName(),
+                "subject", typeLabel + " Assessment Scheduled — " + app.title(),
+                "body", body,
+                "trigger", typeLabel + " Assessment Scheduled",
+                "jobTitle", app.title()));
     }
 
     private AssessmentResponse response(AssessmentData data) {
