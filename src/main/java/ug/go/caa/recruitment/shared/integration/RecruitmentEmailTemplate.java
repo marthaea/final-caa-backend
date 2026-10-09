@@ -69,8 +69,8 @@ public final class RecruitmentEmailTemplate {
                         BORDER,
                         BORDER,
                         bodyHtml,
-                        footerBlock(),
                         BORDER,
+                        footerBlock(),
                         MUTED);
     }
 
