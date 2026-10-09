@@ -3,6 +3,7 @@ package ug.go.caa.recruitment.shared.integration;
 import jakarta.mail.internet.MimeMessage;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
@@ -23,6 +24,11 @@ import static ug.go.caa.recruitment.shared.integration.RecruitmentEmailTemplate.
 
 @Component
 public class OutboxEmailWorker {
+
+
+
+    @Value("${app.maintenance.enabled:false}")
+    private boolean maintenanceEnabled;
 
     private final JdbcClient jdbc;
     private final JavaMailSender mailSender;
@@ -74,6 +80,9 @@ public class OutboxEmailWorker {
 
     @Scheduled(cron = "0 5 0 * * *", zone = "UTC")
     public void closeExpiredJobs() {
+        if (!maintenanceEnabled) {
+            return;
+        }
         jdbc.sql("""
                 UPDATE jobs SET visibility = 'closed', updated_at = now()
                 WHERE closes_at < current_date AND visibility <> 'closed'
@@ -82,6 +91,9 @@ public class OutboxEmailWorker {
 
     @Scheduled(cron = "0 10 0 * * *", zone = "UTC")
     public void purgeOldAnalytics() {
+        if (!maintenanceEnabled) {
+            return;
+        }
         jdbc.sql("DELETE FROM analytics_events WHERE created_at < now() - interval '90 days'").update();
         jdbc.sql("DELETE FROM api_rate_limits WHERE window_start < now() - interval '1 day'").update();
     }

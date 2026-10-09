@@ -145,6 +145,28 @@ class OutboxEmailWorkerIntegrationTest {
         verify(mailSender, atLeast(events.size())).send(any(jakarta.mail.internet.MimeMessage.class));
     }
 
+
+    @Test
+    void maintenanceTasksRemainDisabledByDefault() {
+        jdbc.update("""
+                UPDATE jobs
+                SET closes_at = CURRENT_DATE - 1,
+                    visibility = 'external'
+                WHERE id = ?
+                """, jobId);
+
+        worker.closeExpiredJobs();
+        worker.purgeOldAnalytics();
+
+        String visibility = jdbc.queryForObject(
+                "SELECT visibility FROM jobs WHERE id = ?",
+                String.class,
+                jobId
+        );
+
+        assertThat(visibility).isEqualTo("external");
+    }
+
     private record EventSeed(String type, String payload) {
     }
 }
